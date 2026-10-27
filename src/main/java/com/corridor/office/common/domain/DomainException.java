@@ -1,5 +1,6 @@
 package com.corridor.office.common.domain;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 
 public abstract class DomainException extends RuntimeException {
@@ -25,5 +26,9 @@ public abstract class DomainException extends RuntimeException {
 
     public String code() {
         return status().name();
+    }
+
+    public HttpHeaders headers() {
+        return HttpHeaders.EMPTY;
     }
 }

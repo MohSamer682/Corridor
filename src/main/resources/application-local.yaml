@@ -3,3 +3,6 @@ spring:
   flyway.locations: classpath:db/migration,classpath:db/seed
 management.endpoints.web.exposure.include: health,info,conditions,beans
 app.cors.allowed-origins: http://localhost:5173
+app.security.refresh-cookie.secure: false
+springdoc.api-docs.enabled: true
+springdoc.swagger-ui.enabled: true

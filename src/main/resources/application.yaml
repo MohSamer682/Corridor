@@ -12,3 +12,5 @@ management:
   endpoints.web.exposure.include: health,info
   endpoint.health.probes.enabled: true
 app.security.jwt.issuer: corridor
+springdoc.api-docs.enabled: false
+springdoc.swagger-ui.enabled: false

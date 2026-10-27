@@ -31,9 +31,11 @@ class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     @ExceptionHandler(DomainException.class)
-    ProblemDetail handleDomain(DomainException exception, Locale locale) {
+    ResponseEntity<ProblemDetail> handleDomain(DomainException exception, Locale locale) {
         var detail = messages.getMessage(exception.messageKey(), exception.arguments(), locale);
-        return problem(exception.status(), detail, exception.code());
+        return ResponseEntity.status(exception.status())
+                .headers(exception.headers())
+                .body(problem(exception.status(), detail, exception.code()));
     }
 
     @ExceptionHandler(AuthenticationException.class)
