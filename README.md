@@ -22,6 +22,10 @@ cd ui && npm ci && npm run dev
 
 The `local` profile starts PostgreSQL, Mailpit and LiveKit from `compose.yaml` and loads demo data. The API runs on `http://localhost:8080` and the UI on `http://localhost:5173`. On Windows, use `mvnw.cmd`.
 
+### Local sign-in
+
+The `local` profile seeds `admin@corridor.local`, `manager@corridor.local`, `nour@corridor.local` and `omar@corridor.local`, all with the password `Corridor-local-1`. The seed lives in `db/seed` and never runs outside `local`.
+
 ## Test
 
 ```bash
