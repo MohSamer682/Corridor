@@ -81,7 +81,9 @@ class AuthFlowIntegrationTest {
                 .isOk()
                 .expectBody()
                 .jsonPath("$.email")
-                .isEqualTo("nour@corridor.local");
+                .isEqualTo("nour@corridor.local")
+                .jsonPath("$.organizationName")
+                .isEqualTo("Corridor Technologies");
 
         var refreshed =
                 refresh(firstCookie).expectStatus().isOk().expectBody(Map.class).returnResult();

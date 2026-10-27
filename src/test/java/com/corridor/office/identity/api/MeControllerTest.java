@@ -40,13 +40,15 @@ class MeControllerTest {
     void shouldReturnTheSignedInUser() throws Exception {
         var id = UUID.randomUUID();
         given(profiles.currentUser(id))
-                .willReturn(new UserView(id, "nour@corridor.local", "Nour", null, Role.EMPLOYEE));
+                .willReturn(
+                        new UserView(id, "nour@corridor.local", "Nour", null, Role.EMPLOYEE, "Corridor Technologies"));
 
         mvc.perform(get("/api/v1/me")
                         .with(jwt().jwt(j -> j.subject(id.toString()).claim("role", "EMPLOYEE"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(id.toString()))
-                .andExpect(jsonPath("$.email").value("nour@corridor.local"));
+                .andExpect(jsonPath("$.email").value("nour@corridor.local"))
+                .andExpect(jsonPath("$.organizationName").value("Corridor Technologies"));
     }
 
     @Test

@@ -16,6 +16,6 @@ public class ProfileQuery {
 
     @Transactional(readOnly = true)
     public UserView currentUser(UUID userId) {
-        return users.findById(userId).map(UserView::of).orElseThrow(SessionEndedException::new);
+        return users.findWithOrganizationById(userId).map(UserView::of).orElseThrow(SessionEndedException::new);
     }
 }

@@ -74,6 +74,7 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.expiresIn").value(600))
                 .andExpect(jsonPath("$.user.email").value("nour@corridor.local"))
                 .andExpect(jsonPath("$.user.role").value("EMPLOYEE"))
+                .andExpect(jsonPath("$.user.organizationName").value("Corridor Technologies"))
                 .andExpect(cookie().value("corridor_refresh", "refresh-raw"))
                 .andExpect(cookie().httpOnly("corridor_refresh", true))
                 .andExpect(cookie().path("corridor_refresh", "/api/v1/auth"))
