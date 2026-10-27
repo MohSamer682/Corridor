@@ -1,7 +1,10 @@
 import { Link, Outlet } from 'react-router';
+import { initials } from '../features/auth/initials';
+import { useSessionStore } from '../features/auth/sessionStore';
 import { BrandMark } from './BrandMark';
 
 export function AppShell() {
+  const user = useSessionStore((state) => state.user);
   return (
     <div className="flex min-h-screen flex-col">
       <a
@@ -10,10 +13,21 @@ export function AppShell() {
       >
         Skip to content
       </a>
-      <header className="flex items-center border-b border-line bg-surface px-[max(16px,3%)] py-3">
+      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-line bg-surface px-[max(16px,3%)] py-3">
         <Link to="/" className="flex min-h-11 items-center text-ink no-underline">
           <BrandMark />
         </Link>
+        {user && (
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted">{user.organizationName}</span>
+            <span
+              title={user.displayName}
+              className="flex size-11 items-center justify-center rounded-full border border-line bg-avatar-bg text-sm font-semibold text-avatar-ink"
+            >
+              {initials(user.displayName ?? '')}
+            </span>
+          </div>
+        )}
       </header>
       <main id="main" className="flex flex-1 flex-col">
         <Outlet />
