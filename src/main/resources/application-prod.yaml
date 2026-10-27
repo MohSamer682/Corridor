@@ -1,0 +1,7 @@
+logging.structured.format.console: ecs
+management.server.port: 8081
+server.forward-headers-strategy: native
+spring:
+  flyway:
+    user: ${FLYWAY_USER}
+    password: ${FLYWAY_PASSWORD}

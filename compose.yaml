@@ -1,0 +1,23 @@
+services:
+  postgres:
+    image: 'postgres:17-alpine'
+    environment:
+      POSTGRES_DB: corridor
+      POSTGRES_USER: corridor_migrator
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-only}
+    ports:
+      - '127.0.0.1:5432:5432'
+    volumes:
+      - ./docker/postgres/init-users.sql:/docker-entrypoint-initdb.d/init-users.sql:ro
+  mailpit:
+    image: 'axllent/mailpit'
+    ports:
+      - '127.0.0.1:1025:1025'
+      - '127.0.0.1:8025:8025'
+  livekit:
+    image: 'livekit/livekit-server'
+    command: --dev --bind 0.0.0.0
+    ports:
+      - '127.0.0.1:7880:7880'
+      - '127.0.0.1:7881:7881'
+      - '127.0.0.1:7882:7882/udp'
