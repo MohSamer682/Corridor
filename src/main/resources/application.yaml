@@ -11,3 +11,4 @@ server.shutdown: graceful
 management:
   endpoints.web.exposure.include: health,info
   endpoint.health.probes.enabled: true
+app.security.jwt.issuer: corridor
