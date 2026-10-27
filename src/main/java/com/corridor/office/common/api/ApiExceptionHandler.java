@@ -43,10 +43,7 @@ class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(
-            MethodArgumentNotValidException exception,
-            HttpHeaders headers,
-            HttpStatusCode status,
-            WebRequest request) {
+            MethodArgumentNotValidException exception, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
         var detail = messages.getMessage("error.validation", null, LocaleContextHolder.getLocale());
         var body = problem(HttpStatus.UNPROCESSABLE_CONTENT, detail, "VALIDATION_FAILED");
         body.setProperty(
