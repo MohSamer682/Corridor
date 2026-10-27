@@ -11,6 +11,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import java.util.Locale;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Entity
 @Table(name = "users")
@@ -60,6 +61,10 @@ public class User extends AuditedEntity {
 
     public static String normalizeEmail(String email) {
         return email.strip().toLowerCase(Locale.ROOT);
+    }
+
+    public boolean passwordMatches(PasswordEncoder encoder, String rawPassword) {
+        return passwordHash != null && encoder.matches(rawPassword, passwordHash);
     }
 
     public boolean isActive() {
