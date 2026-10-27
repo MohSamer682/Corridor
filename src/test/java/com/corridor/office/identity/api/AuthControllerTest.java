@@ -94,6 +94,17 @@ class AuthControllerTest {
     }
 
     @Test
+    void shouldSignInWhenEmailHasSurroundingSpaces() throws Exception {
+        given(auth.signIn("Nour@Corridor.local", "Correct-horse-1", "127.0.0.1"))
+                .willReturn(session);
+
+        mvc.perform(post("/api/v1/auth/login")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"email\":\"  Nour@Corridor.local \",\"password\":\"Correct-horse-1\"}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void shouldRejectAMalformedEmail() throws Exception {
         mvc.perform(post("/api/v1/auth/login")
                         .contentType(APPLICATION_JSON)

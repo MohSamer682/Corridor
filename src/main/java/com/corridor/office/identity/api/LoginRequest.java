@@ -10,4 +10,9 @@ record LoginRequest(
                 @Size(max = 254, message = "Enter your work email.")
                 String email,
         @NotBlank(message = "Use 8 to 128 characters.") @Size(min = 8, max = 128, message = "Use 8 to 128 characters.")
-                String password) {}
+                String password) {
+
+    LoginRequest {
+        email = email == null ? null : email.strip();
+    }
+}
