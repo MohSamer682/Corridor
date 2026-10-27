@@ -1,0 +1,13 @@
+spring:
+  application.name: corridor
+  threads.virtual.enabled: true
+  mvc.problemdetails.enabled: true
+  jpa:
+    open-in-view: false
+    hibernate.ddl-auto: validate
+  flyway.locations: classpath:db/migration
+  lifecycle.timeout-per-shutdown-phase: 20s
+server.shutdown: graceful
+management:
+  endpoints.web.exposure.include: health,info
+  endpoint.health.probes.enabled: true
