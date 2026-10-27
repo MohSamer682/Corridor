@@ -1,0 +1,17 @@
+target/
+ui/node_modules/
+ui/dist/
+ui/playwright-report/
+ui/test-results/
+.env
+.env.*
+.claude/
+.idea/
+.vscode/
+.worktrees/
+.superpowers/
+.local/
+.trash_*/
+feature-plans/
+SPEC.md
+*.log
