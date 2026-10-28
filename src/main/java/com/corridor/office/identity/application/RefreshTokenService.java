@@ -53,6 +53,10 @@ public class RefreshTokenService {
         return new SignedInSession(tokenService.issueAccessToken(user), value, user);
     }
 
+    public void revokeAllFor(UUID userId) {
+        tokens.revokeAllForUser(userId, clock.instant());
+    }
+
     public void revokeFamilyOf(String raw) {
         hash(raw)
                 .flatMap(tokens::findForRotationByTokenHash)
