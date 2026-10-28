@@ -15,11 +15,15 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID
 
     // Two tabs can present the same token at once; the row lock makes the second one see it as already rotated.
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @EntityGraph(attributePaths = {"user", "user.organization"})
+    @EntityGraph(attributePaths = {"user", "user.organization", "user.team"})
     @Query("select t from RefreshToken t where t.tokenHash = :hash")
     Optional<RefreshToken> findForRotationByTokenHash(byte[] hash);
 
     @Modifying
     @Query("update RefreshToken t set t.revokedAt = :now where t.familyId = :familyId and t.revokedAt is null")
     int revokeFamily(UUID familyId, Instant now);
+
+    @Modifying
+    @Query("update RefreshToken t set t.revokedAt = :now where t.user.id = :userId and t.revokedAt is null")
+    int revokeAllForUser(UUID userId, Instant now);
 }

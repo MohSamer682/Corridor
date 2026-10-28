@@ -1,6 +1,8 @@
-﻿spring:
+spring:
   docker.compose.lifecycle-management: start-only
   flyway.locations: classpath:db/migration,classpath:db/seed
+  # The seed sits at V1000 in local only, so later schema migrations arrive below it.
+  flyway.out-of-order: true
 management.endpoints.web.exposure.include: health,info,conditions,beans
 app.cors.allowed-origins: http://localhost:5173,http://localhost:4173
 app.security.refresh-cookie.secure: false

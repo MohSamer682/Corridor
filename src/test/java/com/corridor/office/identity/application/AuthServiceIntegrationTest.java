@@ -7,8 +7,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowable;
 
 import com.corridor.office.TestcontainersConfiguration;
+import com.corridor.office.common.security.Role;
 import com.corridor.office.identity.domain.IdentityFixtures;
-import com.corridor.office.identity.domain.Role;
 import com.corridor.office.identity.domain.User;
 import com.corridor.office.identity.infrastructure.OrganizationRepository;
 import com.corridor.office.identity.infrastructure.UserRepository;

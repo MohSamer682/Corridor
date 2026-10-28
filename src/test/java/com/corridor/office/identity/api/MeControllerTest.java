@@ -7,10 +7,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.corridor.office.common.security.Role;
 import com.corridor.office.config.SecurityConfig;
 import com.corridor.office.identity.application.ProfileQuery;
 import com.corridor.office.identity.application.UserView;
-import com.corridor.office.identity.domain.Role;
+import com.corridor.office.identity.domain.UserStatus;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,8 +41,17 @@ class MeControllerTest {
     void shouldReturnTheSignedInUser() throws Exception {
         var id = UUID.randomUUID();
         given(profiles.currentUser(id))
-                .willReturn(
-                        new UserView(id, "nour@corridor.local", "Nour", null, Role.EMPLOYEE, "Corridor Technologies"));
+                .willReturn(new UserView(
+                        id,
+                        "nour@corridor.local",
+                        "Nour",
+                        null,
+                        Role.EMPLOYEE,
+                        "Corridor Technologies",
+                        null,
+                        null,
+                        UserStatus.ACTIVE,
+                        0));
 
         mvc.perform(get("/api/v1/me")
                         .with(jwt().jwt(j -> j.subject(id.toString()).claim("role", "EMPLOYEE"))))

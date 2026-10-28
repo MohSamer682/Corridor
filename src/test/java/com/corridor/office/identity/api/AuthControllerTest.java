@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.corridor.office.common.security.Role;
 import com.corridor.office.config.SecurityConfig;
 import com.corridor.office.identity.application.AccessToken;
 import com.corridor.office.identity.application.AuthService;
@@ -21,7 +22,6 @@ import com.corridor.office.identity.application.SessionEndedException;
 import com.corridor.office.identity.application.SignedInSession;
 import com.corridor.office.identity.application.TooManyAttemptsException;
 import com.corridor.office.identity.domain.IdentityFixtures;
-import com.corridor.office.identity.domain.Role;
 import com.corridor.office.identity.domain.User;
 import jakarta.servlet.http.Cookie;
 import java.time.Clock;

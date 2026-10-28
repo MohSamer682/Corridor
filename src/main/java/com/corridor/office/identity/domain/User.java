@@ -1,6 +1,7 @@
 package com.corridor.office.identity.domain;
 
 import com.corridor.office.common.domain.AuditedEntity;
+import com.corridor.office.common.security.Role;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -29,6 +30,10 @@ public class User extends AuditedEntity {
 
     @Column(length = 80)
     private String jobTitle;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "team_id")
+    private Team team;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 16)
@@ -77,6 +82,30 @@ public class User extends AuditedEntity {
 
     public void reactivate() {
         status = UserStatus.ACTIVE;
+    }
+
+    public void changeRole(Role newRole) {
+        role = newRole;
+    }
+
+    public void moveToTeam(Team newTeam) {
+        team = newTeam;
+    }
+
+    public void rename(String newName) {
+        displayName = newName.strip();
+    }
+
+    public void changeJobTitle(String newJobTitle) {
+        jobTitle = newJobTitle == null || newJobTitle.isBlank() ? null : newJobTitle.strip();
+    }
+
+    public Team team() {
+        return team;
+    }
+
+    public long version() {
+        return version;
     }
 
     public Organization organization() {
