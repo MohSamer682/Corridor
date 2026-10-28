@@ -4,6 +4,60 @@
  */
 
 export interface paths {
+  '/api/v1/users': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List people in your company, filtered and paged (admins only) */
+    get: operations['list'];
+    put?: never;
+    /** Add a person with a first password */
+    post: operations['create'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/users/{id}/suspension': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Suspend a person and end their sessions */
+    post: operations['suspend'];
+    /** Let a suspended person sign in again */
+    delete: operations['reactivate'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/teams': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Teams in your company with member counts */
+    get: operations['list_1'];
+    put?: never;
+    /** Add a team (admins only) */
+    post: operations['create_1'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/auth/refresh': {
     parameters: {
       query?: never;
@@ -55,6 +109,43 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/users/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** One person, with their version as the ETag */
+    get: operations['get'];
+    put?: never;
+    post?: never;
+    /** Remove a person from Corridor */
+    delete: operations['remove'];
+    options?: never;
+    head?: never;
+    /** Change name, job title, role or team; send the ETag back as If-Match */
+    patch: operations['update'];
+    trace?: never;
+  };
+  '/api/v1/teams/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Delete an empty team */
+    delete: operations['delete'];
+    options?: never;
+    head?: never;
+    /** Rename or recolor a team; send its version back as If-Match */
+    patch: operations['update_1'];
+    trace?: never;
+  };
   '/api/v1/me': {
     parameters: {
       query?: never;
@@ -76,11 +167,16 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
-    TokenResponse: {
-      accessToken?: string;
-      /** Format: int64 */
-      expiresIn?: number;
-      user?: components['schemas']['UserView'];
+    CreateUserRequest: {
+      /** Format: email */
+      email: string;
+      displayName: string;
+      jobTitle?: string;
+      /** @enum {string} */
+      role: 'ADMIN' | 'MANAGER' | 'EMPLOYEE';
+      /** Format: uuid */
+      teamId?: string;
+      password: string;
     };
     UserView: {
       /** Format: uuid */
@@ -91,15 +187,93 @@ export interface components {
       /** @enum {string} */
       role?: 'ADMIN' | 'MANAGER' | 'EMPLOYEE';
       organizationName?: string;
+      /** Format: uuid */
+      teamId?: string;
+      teamName?: string;
+      /** @enum {string} */
+      status?: 'ACTIVE' | 'SUSPENDED';
+      /** Format: int64 */
+      version?: number;
     };
     ApiResult: {
       id?: string;
       status?: string;
     };
+    TeamRequest: {
+      name: string;
+      color: string;
+    };
+    TeamView: {
+      /** Format: uuid */
+      id?: string;
+      name?: string;
+      color?: string;
+      /** Format: int64 */
+      memberCount?: number;
+      /** Format: int64 */
+      version?: number;
+    };
+    TokenResponse: {
+      accessToken?: string;
+      /** Format: int64 */
+      expiresIn?: number;
+      user?: components['schemas']['UserView'];
+    };
     LoginRequest: {
       /** Format: email */
       email: string;
       password: string;
+    };
+    UpdateUserRequest: {
+      displayName: string;
+      jobTitle?: string;
+      /** @enum {string} */
+      role: 'ADMIN' | 'MANAGER' | 'EMPLOYEE';
+      /** Format: uuid */
+      teamId?: string;
+    };
+    Pageable: {
+      /** Format: int32 */
+      page?: number;
+      /** Format: int32 */
+      size?: number;
+      sort?: string[];
+    };
+    PageResponseUserSummary: {
+      items?: components['schemas']['UserSummary'][];
+      /** Format: int32 */
+      page?: number;
+      /** Format: int32 */
+      size?: number;
+      /** Format: int64 */
+      totalItems?: number;
+      /** Format: int32 */
+      totalPages?: number;
+    };
+    UserSummary: {
+      /** Format: uuid */
+      id?: string;
+      email?: string;
+      displayName?: string;
+      jobTitle?: string;
+      /** @enum {string} */
+      role?: 'ADMIN' | 'MANAGER' | 'EMPLOYEE';
+      /** @enum {string} */
+      status?: 'ACTIVE' | 'SUSPENDED';
+      /** Format: uuid */
+      teamId?: string;
+      teamName?: string;
+    };
+    PageResponseTeamView: {
+      items?: components['schemas']['TeamView'][];
+      /** Format: int32 */
+      page?: number;
+      /** Format: int32 */
+      size?: number;
+      /** Format: int64 */
+      totalItems?: number;
+      /** Format: int32 */
+      totalPages?: number;
     };
   };
   responses: never;
@@ -110,6 +284,190 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  list: {
+    parameters: {
+      query: {
+        status?: 'ACTIVE' | 'SUSPENDED';
+        teamId?: string;
+        query?: string;
+        pageable: components['schemas']['Pageable'];
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description A page of people */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['PageResponseUserSummary'];
+        };
+      };
+      /** @description Not an admin */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['PageResponseUserSummary'];
+        };
+      };
+    };
+  };
+  create: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CreateUserRequest'];
+      };
+    };
+    responses: {
+      /** @description Added; Location points at the new person */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['UserView'];
+        };
+      };
+      /** @description A user with this email already exists */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['UserView'];
+        };
+      };
+      /** @description Some fields need attention */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['UserView'];
+        };
+      };
+    };
+  };
+  suspend: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Suspended */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['ApiResult'];
+        };
+      };
+      /** @description Yourself or the last active admin */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['ApiResult'];
+        };
+      };
+    };
+  };
+  reactivate: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Active again */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['ApiResult'];
+        };
+      };
+    };
+  };
+  list_1: {
+    parameters: {
+      query: {
+        pageable: components['schemas']['Pageable'];
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description A page of teams */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['PageResponseTeamView'];
+        };
+      };
+    };
+  };
+  create_1: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['TeamRequest'];
+      };
+    };
+    responses: {
+      /** @description Added; Location points at the new team */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['TeamView'];
+        };
+      };
+      /** @description A team with this name already exists */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['TeamView'];
+        };
+      };
+    };
+  };
   refresh: {
     parameters: {
       query?: never;
@@ -219,6 +577,191 @@ export interface operations {
         };
         content: {
           '*/*': components['schemas']['TokenResponse'];
+        };
+      };
+    };
+  };
+  get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The person */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['UserView'];
+        };
+      };
+      /** @description Not in your company */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['UserView'];
+        };
+      };
+    };
+  };
+  remove: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Removed */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['ApiResult'];
+        };
+      };
+      /** @description Yourself or the last active admin */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['ApiResult'];
+        };
+      };
+    };
+  };
+  update: {
+    parameters: {
+      query?: never;
+      header?: {
+        'If-Match'?: string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['UpdateUserRequest'];
+      };
+    };
+    responses: {
+      /** @description Saved */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['UserView'];
+        };
+      };
+      /** @description Someone else changed this person, or the change is not allowed */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['UserView'];
+        };
+      };
+      /** @description If-Match is missing */
+      428: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['UserView'];
+        };
+      };
+    };
+  };
+  delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Deleted */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['ApiResult'];
+        };
+      };
+      /** @description The team still has members */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['ApiResult'];
+        };
+      };
+    };
+  };
+  update_1: {
+    parameters: {
+      query?: never;
+      header?: {
+        'If-Match'?: string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['TeamRequest'];
+      };
+    };
+    responses: {
+      /** @description Saved */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['TeamView'];
+        };
+      };
+      /** @description Someone else changed this team, or the name is taken */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['TeamView'];
+        };
+      };
+      /** @description If-Match is missing */
+      428: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['TeamView'];
         };
       };
     };
