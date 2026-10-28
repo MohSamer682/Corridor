@@ -1,6 +1,7 @@
 package com.corridor.office.identity.application;
 
 import com.corridor.office.common.domain.ConflictException;
+import com.corridor.office.common.domain.ForbiddenException;
 import com.corridor.office.common.domain.NotFoundException;
 import com.corridor.office.common.security.CurrentUser;
 import com.corridor.office.common.security.Role;
@@ -51,6 +52,18 @@ class ManagedUsers {
                                 user.organization().id(), Role.ADMIN, UserStatus.ACTIVE)
                         <= 1) {
             throw new ConflictException("users.lastAdmin");
+        }
+    }
+
+    void refusePending(User user) {
+        if (user.isPending()) {
+            throw new ConflictException("users.pending");
+        }
+    }
+
+    void refuseAdminChangeByHr(CurrentUser actor, Role from, Role to) {
+        if (actor.role() != Role.ADMIN && (from == Role.ADMIN || to == Role.ADMIN)) {
+            throw new ForbiddenException("users.adminOnly");
         }
     }
 }

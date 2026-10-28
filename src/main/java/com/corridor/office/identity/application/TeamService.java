@@ -33,7 +33,7 @@ public class TeamService {
     }
 
     @Transactional
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'HR')")
     public TeamView create(CurrentUser actor, String name, String color) {
         refuseDuplicateName(actor, name);
         var team = Team.create(organizations.getReferenceById(actor.organizationId()), name, color);
@@ -42,7 +42,7 @@ public class TeamService {
     }
 
     @Transactional
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'HR')")
     public TeamView update(CurrentUser actor, UUID id, long expectedVersion, String name, String color) {
         var team = load(actor, id);
         if (team.version() != expectedVersion) {
@@ -58,7 +58,7 @@ public class TeamService {
     }
 
     @Transactional
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'HR')")
     public void delete(CurrentUser actor, UUID id) {
         var team = load(actor, id);
         if (users.countByTeamId(id) > 0) {

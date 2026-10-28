@@ -18,6 +18,7 @@ import com.corridor.office.identity.application.AccessToken;
 import com.corridor.office.identity.application.AuthService;
 import com.corridor.office.identity.application.InvalidCredentialsException;
 import com.corridor.office.identity.application.RefreshTokenValue;
+import com.corridor.office.identity.application.RegistrationService;
 import com.corridor.office.identity.application.SessionEndedException;
 import com.corridor.office.identity.application.SignedInSession;
 import com.corridor.office.identity.application.TooManyAttemptsException;
@@ -54,6 +55,9 @@ class AuthControllerTest {
 
     @MockitoBean
     AuthService auth;
+
+    @MockitoBean
+    RegistrationService registrations;
 
     @MockitoBean
     JwtDecoder jwtDecoder;

@@ -8,3 +8,5 @@ app.cors.allowed-origins: http://localhost:5173,http://localhost:4173
 app.security.refresh-cookie.secure: false
 springdoc.api-docs.enabled: true
 springdoc.swagger-ui.enabled: true
+# The browser tests sign in many times a minute from one address; production keeps the default of 10.
+app.security.login-limit.max-attempts: 200

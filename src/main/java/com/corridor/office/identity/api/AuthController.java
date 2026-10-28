@@ -2,6 +2,7 @@ package com.corridor.office.identity.api;
 
 import com.corridor.office.common.api.ApiResult;
 import com.corridor.office.identity.application.AuthService;
+import com.corridor.office.identity.application.RegistrationService;
 import com.corridor.office.identity.application.SessionEndedException;
 import com.corridor.office.identity.application.SignedInSession;
 import com.corridor.office.identity.application.UserView;
@@ -13,12 +14,14 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import java.time.Clock;
 import java.time.Duration;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -27,11 +30,13 @@ import org.springframework.web.bind.annotation.RestController;
 class AuthController {
 
     private final AuthService auth;
+    private final RegistrationService registrations;
     private final RefreshCookies cookies;
     private final Clock clock;
 
-    AuthController(AuthService auth, RefreshCookies cookies, Clock clock) {
+    AuthController(AuthService auth, RegistrationService registrations, RefreshCookies cookies, Clock clock) {
         this.auth = auth;
+        this.registrations = registrations;
         this.cookies = cookies;
         this.clock = clock;
     }
@@ -46,6 +51,17 @@ class AuthController {
     TokenResponse login(
             @Valid @RequestBody LoginRequest request, HttpServletRequest http, HttpServletResponse response) {
         return respond(auth.signIn(request.email(), request.password(), http.getRemoteAddr()), response);
+    }
+
+    @PostMapping("/registrations")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    @Operation(summary = "Ask for an account; HR approves it before it can sign in")
+    @ApiResponse(responseCode = "202", description = "Request recorded, or the email already has an account")
+    @ApiResponse(responseCode = "422", description = "Some fields need attention")
+    @ApiResponse(responseCode = "429", description = "Too many attempts; see Retry-After")
+    ApiResult register(@Valid @RequestBody RegistrationRequest request, HttpServletRequest http) {
+        registrations.requestAccess(request.displayName(), request.email(), request.password(), http.getRemoteAddr());
+        return new ApiResult(null, "PENDING");
     }
 
     @PostMapping("/refresh")

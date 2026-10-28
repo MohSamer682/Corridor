@@ -36,7 +36,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
                         u.id, u.email, u.displayName, u.jobTitle, u.role, u.status, t.id, t.name)
                     from User u left join u.team t
                     where u.organization.id = :organizationId
-                      and (:status is null or u.status = :status)
+                      and ((:status is null and u.status <> com.corridor.office.identity.domain.UserStatus.PENDING) or u.status = :status)
                       and (:teamId is null or t.id = :teamId)
                       and (:pattern is null or lower(u.displayName) like :pattern or u.email like :pattern)
                     order by u.displayName, u.id
@@ -45,7 +45,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
                     """
                     select count(u) from User u left join u.team t
                     where u.organization.id = :organizationId
-                      and (:status is null or u.status = :status)
+                      and ((:status is null and u.status <> com.corridor.office.identity.domain.UserStatus.PENDING) or u.status = :status)
                       and (:teamId is null or t.id = :teamId)
                       and (:pattern is null or lower(u.displayName) like :pattern or u.email like :pattern)
                     """)

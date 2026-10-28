@@ -64,6 +64,22 @@ public class User extends AuditedEntity {
         return new User(organization, email, displayName, role, passwordHash);
     }
 
+    public static User requestAccess(Organization organization, String email, String displayName, String passwordHash) {
+        var user = new User(organization, email, displayName, Role.EMPLOYEE, passwordHash);
+        user.status = UserStatus.PENDING;
+        return user;
+    }
+
+    public boolean isPending() {
+        return status == UserStatus.PENDING;
+    }
+
+    public void approve(Role grantedRole, Team assignedTeam) {
+        role = grantedRole;
+        team = assignedTeam;
+        status = UserStatus.ACTIVE;
+    }
+
     public static String normalizeEmail(String email) {
         return email.strip().toLowerCase(Locale.ROOT);
     }

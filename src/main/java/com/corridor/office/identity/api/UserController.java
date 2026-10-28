@@ -126,6 +126,26 @@ class UserController {
         return new ApiResult(id.toString(), "ACTIVE");
     }
 
+    @PostMapping("/{id}/approval")
+    @Operation(summary = "Approve a sign-up request with a role and team (HR or admins)")
+    @ApiResponse(responseCode = "200", description = "Approved; the person can sign in")
+    @ApiResponse(responseCode = "403", description = "Only an admin can grant admin access")
+    @ApiResponse(responseCode = "409", description = "The request was already handled")
+    ApiResult approve(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable UUID id, @Valid @RequestBody ApprovalRequest request) {
+        access.approve(CurrentUser.from(jwt), id, request.role(), request.teamId());
+        return new ApiResult(id.toString(), "ACTIVE");
+    }
+
+    @DeleteMapping("/{id}/approval")
+    @Operation(summary = "Decline a sign-up request and delete it")
+    @ApiResponse(responseCode = "200", description = "Declined")
+    @ApiResponse(responseCode = "409", description = "The request was already handled")
+    ApiResult decline(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id) {
+        access.decline(CurrentUser.from(jwt), id);
+        return new ApiResult(id.toString(), "DECLINED");
+    }
+
     @DeleteMapping("/{id}")
     @Operation(summary = "Remove a person from Corridor")
     @ApiResponse(responseCode = "200", description = "Removed")

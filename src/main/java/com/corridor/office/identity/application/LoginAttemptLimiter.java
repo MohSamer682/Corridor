@@ -1,5 +1,6 @@
 package com.corridor.office.identity.application;
 
+import com.corridor.office.identity.infrastructure.LoginLimitProperties;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.time.Clock;
@@ -11,12 +12,13 @@ import org.springframework.stereotype.Component;
 @Component
 public class LoginAttemptLimiter {
 
-    private static final int MAX_ATTEMPTS = 10;
     private static final Duration WINDOW = Duration.ofMinutes(1);
 
     private final Cache<String, AtomicInteger> attempts;
+    private final int maxAttempts;
 
-    public LoginAttemptLimiter(Clock clock) {
+    public LoginAttemptLimiter(Clock clock, LoginLimitProperties properties) {
+        this.maxAttempts = properties.maxAttempts();
         this.attempts = Caffeine.newBuilder()
                 .expireAfterWrite(WINDOW)
                 .ticker(() -> clock.millis() * 1_000_000L)
@@ -31,7 +33,7 @@ public class LoginAttemptLimiter {
 
     private void count(String key) {
         var total = attempts.get(key, ignored -> new AtomicInteger()).incrementAndGet();
-        if (total > MAX_ATTEMPTS) {
+        if (total > maxAttempts) {
             throw new TooManyAttemptsException(retryAfter(key));
         }
     }
