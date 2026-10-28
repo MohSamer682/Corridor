@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../shared/api/apiClient';
+import { roleLabels } from '../../shared/roles';
 import { initials } from './initials';
 import type { UserView } from './sessionStore';
 import { useLogout } from './useLogout';
 
-const roleLabels = { ADMIN: 'Admin', MANAGER: 'Manager', EMPLOYEE: 'Member' } as const;
 const card = 'rounded-[14px] border border-line bg-surface p-7';
 const secondaryButton =
   'h-11 cursor-pointer rounded-[10px] border border-line bg-transparent px-[18px] font-semibold text-ink';

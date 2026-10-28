@@ -26,6 +26,26 @@ export function stubFetch(responses: StubbedResponse[], options: { delayMs?: num
   );
 }
 
+type Handler = (method: string, url: string, body: unknown) => StubbedResponse;
+
+export function stubApi(handler: Handler) {
+  calls = [];
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init: RequestInit = {}) => {
+      calls.push({ url, init });
+      const body = typeof init.body === 'string' ? JSON.parse(init.body) : undefined;
+      const [status, payload] = handler(init.method ?? 'GET', url, body);
+      return new Response(JSON.stringify(payload), {
+        status,
+        headers: {
+          'Content-Type': status >= 400 ? 'application/problem+json' : 'application/json',
+        },
+      });
+    }),
+  );
+}
+
 export function fetchCalls(): Call[] {
   return calls;
 }

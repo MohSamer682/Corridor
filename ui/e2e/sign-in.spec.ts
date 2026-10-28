@@ -35,11 +35,15 @@ for (const colorScheme of ['light', 'dark'] as const) {
 
     test('sign-in and profile meet WCAG AA', async ({ page }) => {
       await page.goto('/login');
-      expect((await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()).violations).toEqual([]);
+      expect(
+        (await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()).violations,
+      ).toEqual([]);
 
       await signIn(page);
       await expect(page.getByText('nour@corridor.local')).toBeVisible();
-      expect((await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()).violations).toEqual([]);
+      expect(
+        (await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()).violations,
+      ).toEqual([]);
     });
   });
 }

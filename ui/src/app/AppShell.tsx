@@ -1,4 +1,4 @@
-import { Link, Outlet } from 'react-router';
+import { Link, NavLink, Outlet } from 'react-router';
 import { initials } from '../features/auth/initials';
 import { useSessionStore } from '../features/auth/sessionStore';
 import { BrandMark } from './BrandMark';
@@ -17,6 +17,32 @@ export function AppShell() {
         <Link to="/" className="flex min-h-11 items-center text-ink no-underline">
           <BrandMark />
         </Link>
+        {user?.role === 'ADMIN' && (
+          <nav
+            aria-label="Main"
+            className="order-3 flex w-full gap-1 overflow-x-auto sm:order-none sm:w-auto"
+          >
+            {(
+              [
+                ['/me', 'Profile'],
+                ['/admin/users', 'People'],
+                ['/admin/teams', 'Teams'],
+              ] as const
+            ).map(([to, text]) => (
+              <NavLink
+                key={to}
+                to={to}
+                className={({ isActive }) =>
+                  `flex min-h-11 items-center border-b-2 px-3 font-medium no-underline ${
+                    isActive ? 'border-accent text-ink' : 'border-transparent text-muted'
+                  }`
+                }
+              >
+                {text}
+              </NavLink>
+            ))}
+          </nav>
+        )}
         {user && (
           <div className="flex items-center gap-3">
             <span className="text-sm text-muted">{user.organizationName}</span>
