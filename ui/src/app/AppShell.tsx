@@ -17,7 +17,7 @@ export function AppShell() {
         <Link to="/" className="flex min-h-11 items-center text-ink no-underline">
           <BrandMark />
         </Link>
-        {user?.role === 'ADMIN' && (
+        {(user?.role === 'ADMIN' || user?.role === 'HR') && (
           <nav
             aria-label="Main"
             className="order-3 flex w-full gap-1 overflow-x-auto sm:order-none sm:w-auto"

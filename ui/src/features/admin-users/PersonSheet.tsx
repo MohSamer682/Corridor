@@ -6,6 +6,7 @@ import { apiClient } from '../../shared/api/apiClient';
 import { roleLabels, type Role } from '../../shared/roles';
 import { Alert } from '../../shared/ui/Alert';
 import { Sheet } from '../../shared/ui/Sheet';
+import { useSessionStore } from '../auth/sessionStore';
 import { ifMatch, useAdminMutation, usePerson, type TeamView, type UserView } from './usePeople';
 
 const field =
@@ -21,7 +22,7 @@ const details = {
     .min(2, 'Use 2 to 80 characters.')
     .max(80, 'Use 2 to 80 characters.'),
   jobTitle: z.string().trim().max(80, 'Use up to 80 characters.'),
-  role: z.enum(['ADMIN', 'MANAGER', 'EMPLOYEE']),
+  role: z.enum(['ADMIN', 'HR', 'MANAGER', 'EMPLOYEE']),
   teamId: z.string(),
 };
 const editSchema = z.object(details);
@@ -70,6 +71,7 @@ function PersonForm({
   teams: TeamView[];
   onDone: () => void;
 }) {
+  const isAdmin = useSessionStore((state) => state.user?.role) === 'ADMIN';
   const {
     register,
     handleSubmit,
@@ -132,12 +134,19 @@ function PersonForm({
             <label className={label} htmlFor="role">
               Role
             </label>
-            <select id="role" className={field} {...register('role')}>
-              {Object.entries(roleLabels).map(([value, text]) => (
-                <option key={value} value={value}>
-                  {text}
-                </option>
-              ))}
+            <select
+              id="role"
+              className={field}
+              disabled={!isAdmin && person?.role === 'ADMIN'}
+              {...register('role')}
+            >
+              {Object.entries(roleLabels)
+                .filter(([value]) => isAdmin || value !== 'ADMIN' || person?.role === 'ADMIN')
+                .map(([value, text]) => (
+                  <option key={value} value={value}>
+                    {text}
+                  </option>
+                ))}
             </select>
           </div>
           <div>
@@ -221,6 +230,7 @@ const TextField = forwardRef<HTMLInputElement, TextFieldProps>(function TextFiel
 });
 
 function AccessZone({ person, onRemoved }: { person: UserView; onRemoved: () => void }) {
+  const isAdmin = useSessionStore((state) => state.user?.role) === 'ADMIN';
   const [confirming, setConfirming] = useState(false);
   const suspended = person.status === 'SUSPENDED';
   const firstName = (person.displayName ?? '').split(' ')[0];
@@ -251,18 +261,20 @@ function AccessZone({ person, onRemoved }: { person: UserView; onRemoved: () => 
           {suspended ? 'Reactivate' : 'Suspend'}
         </button>
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3">
-        <div>
-          <span className="block font-semibold">Remove from Corridor</span>
-          <span className="block text-sm text-muted">Deletes the account.</span>
+      {isAdmin && (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3">
+          <div>
+            <span className="block font-semibold">Remove from Corridor</span>
+            <span className="block text-sm text-muted">Deletes the account.</span>
+          </div>
+          {!confirming && (
+            <button type="button" className={secondary} onClick={() => setConfirming(true)}>
+              Remove from Corridor
+            </button>
+          )}
         </div>
-        {!confirming && (
-          <button type="button" className={secondary} onClick={() => setConfirming(true)}>
-            Remove from Corridor
-          </button>
-        )}
-      </div>
-      {confirming && (
+      )}
+      {isAdmin && confirming && (
         <div
           role="group"
           aria-label="Confirm removal"

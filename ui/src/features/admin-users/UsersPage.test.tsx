@@ -167,3 +167,60 @@ it('returns focus to the edit button when the sheet closes', async () => {
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   expect(edit).toHaveFocus();
 });
+
+const zeinab = {
+  id: 'u9',
+  email: 'zeinab@corridor.local',
+  displayName: 'Zeinab Ali',
+  role: 'EMPLOYEE',
+  status: 'PENDING',
+  teamId: null,
+  teamName: null,
+};
+
+it('shows requests and approves one with a role and team', async () => {
+  let approved = false;
+  stubApi((method, url) => {
+    if (url.startsWith('/api/v1/teams')) return [200, page([team])];
+    if (method === 'POST' && url === '/api/v1/users/u9/approval') {
+      approved = true;
+      return [200, { id: 'u9', status: 'ACTIVE' }];
+    }
+    if (url.includes('status=PENDING')) return [200, page(approved ? [] : [zeinab])];
+    return [200, page([omar])];
+  });
+  renderApp('/admin/users');
+
+  await user.click(await screen.findByRole('tab', { name: /Requests/ }));
+  expect(await screen.findByText('Zeinab Ali')).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Approve Zeinab Ali' }));
+  await user.selectOptions(screen.getByLabelText('Role for Zeinab Ali'), 'MANAGER');
+  await user.selectOptions(screen.getByLabelText('Team for Zeinab Ali'), 't1');
+  await user.click(screen.getByRole('button', { name: 'Approve Zeinab' }));
+
+  await waitFor(() => expect(approved).toBe(true));
+  const call = fetchCalls().find((c) => c.url === '/api/v1/users/u9/approval');
+  expect(JSON.parse(String(call?.init.body))).toEqual({ role: 'MANAGER', teamId: 't1' });
+  expect(await screen.findByText('No requests right now.')).toBeInTheDocument();
+});
+
+it('lets HR manage people but not add them or grant admin', async () => {
+  resetSession();
+  const token = tokenResponse('t');
+  useSessionStore.getState().signIn({ ...token, user: { ...token.user, role: 'HR' } });
+  stubApi((_method, url) => {
+    if (url.startsWith('/api/v1/teams')) return [200, page([team])];
+    if (url === '/api/v1/users/u2') return [200, omarView];
+    return [200, page([omar])];
+  });
+  renderApp('/admin/users');
+
+  expect(await screen.findByText('Omar Adel')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Add person' })).not.toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Edit Omar Adel' }));
+  const sheet = await screen.findByRole('dialog', { name: 'Omar Adel' });
+  expect(within(sheet).queryByRole('option', { name: 'Admin' })).not.toBeInTheDocument();
+  expect(
+    within(sheet).queryByRole('button', { name: 'Remove from Corridor' }),
+  ).not.toBeInTheDocument();
+});

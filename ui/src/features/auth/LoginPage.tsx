@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { useLocation, useNavigate } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { Alert } from '../../shared/ui/Alert';
 import { BrandPanel } from './BrandPanel';
 import { loginSchema, type LoginValues } from './loginSchema';
@@ -44,7 +44,9 @@ export function LoginPage() {
             <Alert tone="info">Your session ended. Sign in again to continue.</Alert>
           )}
           {login.error && (
-            <Alert tone="danger">{login.error.detail ?? 'Something went wrong. Try again.'}</Alert>
+            <Alert tone={login.error.code === 'ACCOUNT_PENDING' ? 'info' : 'danger'}>
+              {login.error.detail ?? 'Something went wrong. Try again.'}
+            </Alert>
           )}
           <div className="flex flex-col gap-1.5">
             <label htmlFor="email" className="text-[13px] font-semibold">
@@ -117,8 +119,11 @@ export function LoginPage() {
             )}
             {login.isPending ? 'Signing in…' : 'Sign in'}
           </button>
-          <p className="m-0 text-[13px] text-muted">
-            Trouble signing in? Ask your admin to check your account.
+          <p className="m-0 text-sm text-muted">
+            New here?{' '}
+            <Link to="/sign-up" className="font-semibold text-accent-text underline-offset-[3px]">
+              Create an account
+            </Link>
           </p>
         </form>
       </main>

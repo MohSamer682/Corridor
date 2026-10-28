@@ -40,6 +40,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/users/{id}/approval': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Approve a sign-up request with a role and team (HR or admins) */
+    post: operations['approve'];
+    /** Decline a sign-up request and delete it */
+    delete: operations['decline'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/teams': {
     parameters: {
       query?: never;
@@ -52,6 +70,23 @@ export interface paths {
     put?: never;
     /** Add a team (admins only) */
     post: operations['create_1'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/auth/registrations': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Ask for an account; HR approves it before it can sign in */
+    post: operations['register'];
     delete?: never;
     options?: never;
     head?: never;
@@ -173,7 +208,7 @@ export interface components {
       displayName: string;
       jobTitle?: string;
       /** @enum {string} */
-      role: 'ADMIN' | 'MANAGER' | 'EMPLOYEE';
+      role: 'ADMIN' | 'HR' | 'MANAGER' | 'EMPLOYEE';
       /** Format: uuid */
       teamId?: string;
       password: string;
@@ -185,19 +220,25 @@ export interface components {
       displayName?: string;
       jobTitle?: string;
       /** @enum {string} */
-      role?: 'ADMIN' | 'MANAGER' | 'EMPLOYEE';
+      role?: 'ADMIN' | 'HR' | 'MANAGER' | 'EMPLOYEE';
       organizationName?: string;
       /** Format: uuid */
       teamId?: string;
       teamName?: string;
       /** @enum {string} */
-      status?: 'ACTIVE' | 'SUSPENDED';
+      status?: 'PENDING' | 'ACTIVE' | 'SUSPENDED';
       /** Format: int64 */
       version?: number;
     };
     ApiResult: {
       id?: string;
       status?: string;
+    };
+    ApprovalRequest: {
+      /** @enum {string} */
+      role: 'ADMIN' | 'HR' | 'MANAGER' | 'EMPLOYEE';
+      /** Format: uuid */
+      teamId?: string;
     };
     TeamRequest: {
       name: string;
@@ -212,6 +253,12 @@ export interface components {
       memberCount?: number;
       /** Format: int64 */
       version?: number;
+    };
+    RegistrationRequest: {
+      displayName: string;
+      /** Format: email */
+      email: string;
+      password: string;
     };
     TokenResponse: {
       accessToken?: string;
@@ -228,7 +275,7 @@ export interface components {
       displayName: string;
       jobTitle?: string;
       /** @enum {string} */
-      role: 'ADMIN' | 'MANAGER' | 'EMPLOYEE';
+      role: 'ADMIN' | 'HR' | 'MANAGER' | 'EMPLOYEE';
       /** Format: uuid */
       teamId?: string;
     };
@@ -257,9 +304,9 @@ export interface components {
       displayName?: string;
       jobTitle?: string;
       /** @enum {string} */
-      role?: 'ADMIN' | 'MANAGER' | 'EMPLOYEE';
+      role?: 'ADMIN' | 'HR' | 'MANAGER' | 'EMPLOYEE';
       /** @enum {string} */
-      status?: 'ACTIVE' | 'SUSPENDED';
+      status?: 'PENDING' | 'ACTIVE' | 'SUSPENDED';
       /** Format: uuid */
       teamId?: string;
       teamName?: string;
@@ -287,7 +334,7 @@ export interface operations {
   list: {
     parameters: {
       query: {
-        status?: 'ACTIVE' | 'SUSPENDED';
+        status?: 'PENDING' | 'ACTIVE' | 'SUSPENDED';
         teamId?: string;
         query?: string;
         pageable: components['schemas']['Pageable'];
@@ -413,6 +460,81 @@ export interface operations {
       };
     };
   };
+  approve: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ApprovalRequest'];
+      };
+    };
+    responses: {
+      /** @description Approved; the person can sign in */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['ApiResult'];
+        };
+      };
+      /** @description Only an admin can grant admin access */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['ApiResult'];
+        };
+      };
+      /** @description The request was already handled */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['ApiResult'];
+        };
+      };
+    };
+  };
+  decline: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Declined */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['ApiResult'];
+        };
+      };
+      /** @description The request was already handled */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['ApiResult'];
+        };
+      };
+    };
+  };
   list_1: {
     parameters: {
       query: {
@@ -464,6 +586,48 @@ export interface operations {
         };
         content: {
           '*/*': components['schemas']['TeamView'];
+        };
+      };
+    };
+  };
+  register: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RegistrationRequest'];
+      };
+    };
+    responses: {
+      /** @description Request recorded, or the email already has an account */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['ApiResult'];
+        };
+      };
+      /** @description Some fields need attention */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['ApiResult'];
+        };
+      };
+      /** @description Too many attempts; see Retry-After */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['ApiResult'];
         };
       };
     };

@@ -77,3 +77,25 @@ it('lets people reveal the password', async () => {
   expect(screen.getByLabelText('Password')).toHaveAttribute('type', 'text');
   expect(screen.getByRole('button', { name: 'Hide password' })).toBeInTheDocument();
 });
+
+it('shows a waiting notice when the account is pending approval', async () => {
+  stubFetch([
+    [
+      403,
+      {
+        status: 403,
+        code: 'ACCOUNT_PENDING',
+        detail: 'Your account is waiting for approval. HR will let you know.',
+      },
+    ],
+  ]);
+  renderApp('/login');
+
+  await fillValidCredentials();
+  await user.click(screen.getByRole('button', { name: 'Sign in' }));
+
+  expect(await screen.findByRole('status')).toHaveTextContent(
+    'Your account is waiting for approval. HR will let you know.',
+  );
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+});
