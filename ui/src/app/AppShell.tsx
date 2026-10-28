@@ -27,6 +27,7 @@ export function AppShell() {
                 ['/me', 'Profile'],
                 ['/admin/users', 'People'],
                 ['/admin/teams', 'Teams'],
+                ['/admin/audit', 'Audit log'],
               ] as const
             ).map(([to, text]) => (
               <NavLink
