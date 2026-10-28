@@ -1,7 +1,9 @@
 import { useDeferredValue, useState } from 'react';
 import { roleLabels } from '../../shared/roles';
 import { initials } from '../auth/initials';
+import { useSessionStore } from '../auth/sessionStore';
 import { PersonSheet } from './PersonSheet';
+import { RequestsList } from './RequestsList';
 import { PAGE_SIZE, usePeople, useTeams, type PeopleFilters, type UserSummary } from './usePeople';
 
 const field =
@@ -22,6 +24,10 @@ export function UsersPage() {
   const people = usePeople(deferredFilters);
   const teams = useTeams();
   const [sheet, setSheet] = useState<SheetState>(null);
+  const [tab, setTab] = useState<'everyone' | 'requests'>('everyone');
+  const isAdmin = useSessionStore((state) => state.user?.role) === 'ADMIN';
+  const requestCount =
+    usePeople({ status: 'PENDING', teamId: '', query: '', page: 0 }).data?.totalItems ?? 0;
   const update = (change: Partial<PeopleFilters>) =>
     setFilters((current) => ({ ...current, page: 0, ...change }));
 
@@ -32,120 +38,159 @@ export function UsersPage() {
           <h1 className="m-0 font-display text-[30px] font-bold tracking-[-0.02em]">People</h1>
           <p className="m-0 mt-1 text-muted">Everyone who can sign in to your company.</p>
         </div>
-        <button
-          type="button"
-          onClick={() => setSheet({ mode: 'add' })}
-          className="inline-flex h-11 cursor-pointer items-center gap-2 rounded-[10px] border-0 bg-accent px-[18px] font-semibold text-accent-ink"
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            aria-hidden="true"
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={() => setSheet({ mode: 'add' })}
+            className="inline-flex h-11 cursor-pointer items-center gap-2 rounded-[10px] border-0 bg-accent px-[18px] font-semibold text-accent-ink"
           >
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-          Add person
-        </button>
-      </div>
-      <div className="flex flex-wrap gap-3">
-        <input
-          type="search"
-          aria-label="Search people"
-          placeholder="Search by name or email"
-          value={filters.query}
-          onChange={(event) => update({ query: event.target.value })}
-          className={`${field} min-w-0 flex-[1_1_260px]`}
-        />
-        <label className="sr-only" htmlFor="status-filter">
-          Status
-        </label>
-        <select
-          id="status-filter"
-          value={filters.status}
-          onChange={(event) => update({ status: event.target.value as PeopleFilters['status'] })}
-          className={`${field} flex-1 sm:flex-none`}
-        >
-          <option value="">All statuses</option>
-          <option value="ACTIVE">Active</option>
-          <option value="SUSPENDED">Suspended</option>
-        </select>
-        <label className="sr-only" htmlFor="team-filter">
-          Team
-        </label>
-        <select
-          id="team-filter"
-          value={filters.teamId}
-          onChange={(event) => update({ teamId: event.target.value })}
-          className={`${field} flex-1 sm:flex-none`}
-        >
-          <option value="">All teams</option>
-          {teams.data?.items.map((team) => (
-            <option key={team.id} value={team.id}>
-              {team.name}
-            </option>
-          ))}
-        </select>
-      </div>
-      <section
-        className="rounded-[14px] border border-line bg-surface"
-        aria-busy={people.isPending}
-      >
-        {people.isError && (
-          <div role="alert" className="flex flex-col items-start gap-3 p-7">
-            <span className="font-semibold text-danger-ink">We couldn't load people.</span>
-            <button type="button" className={pagerButton} onClick={() => people.refetch()}>
-              Try again
-            </button>
-          </div>
-        )}
-        {people.data && people.data.items.length === 0 && (
-          <div className="flex flex-col items-center gap-2.5 px-6 py-14 text-center">
-            <p className="m-0 font-display text-xl font-bold">No people match these filters.</p>
-            <p className="m-0 text-muted">Try another name, or show everyone.</p>
-            <button
-              type="button"
-              className={pagerButton}
-              onClick={() => setFilters({ status: '', teamId: '', query: '', page: 0 })}
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              aria-hidden="true"
             >
-              Clear filters
-            </button>
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            Add person
+          </button>
+        )}
+      </div>
+      <div role="tablist" aria-label="People" className="flex gap-1 border-b border-line">
+        {(['everyone', 'requests'] as const).map((name) => (
+          <button
+            key={name}
+            type="button"
+            role="tab"
+            aria-selected={tab === name}
+            onClick={() => setTab(name)}
+            className={`inline-flex h-11 cursor-pointer items-center gap-2 border-0 border-b-2 bg-transparent px-3.5 font-semibold ${
+              tab === name ? 'border-accent text-ink' : 'border-transparent text-muted'
+            }`}
+          >
+            {name === 'everyone' ? 'Everyone' : 'Requests'}
+            {name === 'requests' && requestCount > 0 && (
+              <span className="grid h-[22px] min-w-[22px] place-items-center rounded-full bg-signal px-1.5 text-xs text-[#141B2D]">
+                {requestCount}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+      {tab === 'requests' ? (
+        <RequestsList teams={teams.data?.items ?? []} />
+      ) : (
+        <>
+          <div className="flex flex-wrap gap-3">
+            <input
+              type="search"
+              aria-label="Search people"
+              placeholder="Search by name or email"
+              value={filters.query}
+              onChange={(event) => update({ query: event.target.value })}
+              className={`${field} min-w-0 flex-[1_1_260px]`}
+            />
+            <label className="sr-only" htmlFor="status-filter">
+              Status
+            </label>
+            <select
+              id="status-filter"
+              value={filters.status}
+              onChange={(event) =>
+                update({ status: event.target.value as PeopleFilters['status'] })
+              }
+              className={`${field} flex-1 sm:flex-none`}
+            >
+              <option value="">All statuses</option>
+              <option value="ACTIVE">Active</option>
+              <option value="SUSPENDED">Suspended</option>
+            </select>
+            <label className="sr-only" htmlFor="team-filter">
+              Team
+            </label>
+            <select
+              id="team-filter"
+              value={filters.teamId}
+              onChange={(event) => update({ teamId: event.target.value })}
+              className={`${field} flex-1 sm:flex-none`}
+            >
+              <option value="">All teams</option>
+              {teams.data?.items.map((team) => (
+                <option key={team.id} value={team.id}>
+                  {team.name}
+                </option>
+              ))}
+            </select>
           </div>
-        )}
-        {people.data && people.data.items.length > 0 && (
-          <PeopleTable people={people.data.items} onEdit={(id) => setSheet({ mode: 'edit', id })} />
-        )}
-        {people.data && people.data.totalItems > 0 && (
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-3 text-sm text-muted">
-            <span>
-              {filters.page * PAGE_SIZE + 1}–{filters.page * PAGE_SIZE + people.data.items.length}{' '}
-              of {people.data.totalItems} people
-            </span>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                className={pagerButton}
-                disabled={filters.page === 0}
-                onClick={() => setFilters((current) => ({ ...current, page: current.page - 1 }))}
-              >
-                Previous
-              </button>
-              <button
-                type="button"
-                className={pagerButton}
-                disabled={filters.page + 1 >= people.data.totalPages}
-                onClick={() => setFilters((current) => ({ ...current, page: current.page + 1 }))}
-              >
-                Next
-              </button>
-            </div>
-          </div>
-        )}
-      </section>
+          <section
+            className="rounded-[14px] border border-line bg-surface"
+            aria-busy={people.isPending}
+          >
+            {people.isError && (
+              <div role="alert" className="flex flex-col items-start gap-3 p-7">
+                <span className="font-semibold text-danger-ink">We couldn't load people.</span>
+                <button type="button" className={pagerButton} onClick={() => people.refetch()}>
+                  Try again
+                </button>
+              </div>
+            )}
+            {people.data && people.data.items.length === 0 && (
+              <div className="flex flex-col items-center gap-2.5 px-6 py-14 text-center">
+                <p className="m-0 font-display text-xl font-bold">No people match these filters.</p>
+                <p className="m-0 text-muted">Try another name, or show everyone.</p>
+                <button
+                  type="button"
+                  className={pagerButton}
+                  onClick={() => setFilters({ status: '', teamId: '', query: '', page: 0 })}
+                >
+                  Clear filters
+                </button>
+              </div>
+            )}
+            {people.data && people.data.items.length > 0 && (
+              <PeopleTable
+                people={people.data.items}
+                onEdit={(id) => setSheet({ mode: 'edit', id })}
+              />
+            )}
+            {people.data && people.data.totalItems > 0 && (
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-3 text-sm text-muted">
+                <span>
+                  {filters.page * PAGE_SIZE + 1}–
+                  {filters.page * PAGE_SIZE + people.data.items.length} of {people.data.totalItems}{' '}
+                  people
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className={pagerButton}
+                    disabled={filters.page === 0}
+                    onClick={() =>
+                      setFilters((current) => ({ ...current, page: current.page - 1 }))
+                    }
+                  >
+                    Previous
+                  </button>
+                  <button
+                    type="button"
+                    className={pagerButton}
+                    disabled={filters.page + 1 >= people.data.totalPages}
+                    onClick={() =>
+                      setFilters((current) => ({ ...current, page: current.page + 1 }))
+                    }
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
+        </>
+      )}
       <PersonSheet state={sheet} teams={teams.data?.items ?? []} onClose={() => setSheet(null)} />
     </div>
   );
@@ -205,7 +250,7 @@ function PersonRow({ person, onEdit }: { person: UserSummary; onEdit: (id: strin
       </td>
       <td className="hidden px-5 py-3 md:table-cell">{role}</td>
       <td className="hidden px-5 py-3 md:table-cell">
-        <StatusBadge status={person.status ?? 'ACTIVE'} />
+        <StatusBadge status={person.status === 'SUSPENDED' ? 'SUSPENDED' : 'ACTIVE'} />
       </td>
       <td className="px-5 py-3 text-right">
         <button

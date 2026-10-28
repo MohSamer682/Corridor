@@ -9,7 +9,7 @@ export type TeamView = components['schemas']['TeamView'];
 type Page<T> = { items: T[]; page: number; size: number; totalItems: number; totalPages: number };
 
 export type PeopleFilters = {
-  status: '' | 'ACTIVE' | 'SUSPENDED';
+  status: '' | 'ACTIVE' | 'SUSPENDED' | 'PENDING';
   teamId: string;
   query: string;
   page: number;
