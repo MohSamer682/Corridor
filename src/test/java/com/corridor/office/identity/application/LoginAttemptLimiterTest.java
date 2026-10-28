@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
 
+import com.corridor.office.identity.infrastructure.LoginLimitProperties;
 import com.corridor.office.support.MutableClock;
 import java.time.Duration;
 import java.time.Instant;
@@ -13,7 +14,7 @@ import org.junit.jupiter.api.Test;
 class LoginAttemptLimiterTest {
 
     private final MutableClock clock = new MutableClock(Instant.parse("2026-10-23T09:00:00Z"));
-    private final LoginAttemptLimiter limiter = new LoginAttemptLimiter(clock);
+    private final LoginAttemptLimiter limiter = new LoginAttemptLimiter(clock, new LoginLimitProperties(10));
 
     @Test
     void shouldBlockTheEleventhAttemptWithinAMinute() {
@@ -48,6 +49,16 @@ class LoginAttemptLimiterTest {
         var exception = catchThrowableOfType(TooManyAttemptsException.class, () -> limiter.check("10.0.0.1", "a@b.c"));
 
         assertThat(exception.retryAfter()).isEqualTo(Duration.ofSeconds(40));
+    }
+
+    @Test
+    void shouldUseTheConfiguredLimit() {
+        var strict = new LoginAttemptLimiter(clock, new LoginLimitProperties(3));
+        for (int i = 0; i < 3; i++) {
+            strict.check("10.0.0.9", "b@c.d");
+        }
+
+        assertThatThrownBy(() -> strict.check("10.0.0.9", "b@c.d")).isInstanceOf(TooManyAttemptsException.class);
     }
 
     private void attempt(int times, String ip, String email) {

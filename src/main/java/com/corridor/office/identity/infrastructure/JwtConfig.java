@@ -18,7 +18,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 
 @Configuration(proxyBeanMethods = false)
-@EnableConfigurationProperties(JwtProperties.class)
+@EnableConfigurationProperties({JwtProperties.class, LoginLimitProperties.class})
 public class JwtConfig {
 
     @Bean
