@@ -42,6 +42,11 @@ public class Team extends AuditedEntity {
         return new Team(organization, name, color);
     }
 
+    /** The team's name, or null for no team. */
+    public static String nameOf(Team team) {
+        return team == null ? null : team.name();
+    }
+
     public void rename(String newName) {
         name = newName.strip();
     }
