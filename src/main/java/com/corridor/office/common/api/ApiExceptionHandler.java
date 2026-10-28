@@ -11,6 +11,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -29,9 +31,23 @@ class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     @ExceptionHandler(DomainException.class)
-    ProblemDetail handleDomain(DomainException exception, Locale locale) {
+    ResponseEntity<ProblemDetail> handleDomain(DomainException exception, Locale locale) {
         var detail = messages.getMessage(exception.messageKey(), exception.arguments(), locale);
-        return problem(exception.status(), detail, exception.code());
+        return ResponseEntity.status(exception.status())
+                .headers(exception.headers())
+                .body(problem(exception.status(), detail, exception.code()));
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    ProblemDetail handleUnauthenticated(AuthenticationException exception, Locale locale) {
+        var detail = messages.getMessage("auth.unauthenticated", null, locale);
+        return problem(HttpStatus.UNAUTHORIZED, detail, "UNAUTHENTICATED");
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    ProblemDetail handleForbidden(AccessDeniedException exception, Locale locale) {
+        var detail = messages.getMessage("auth.forbidden", null, locale);
+        return problem(HttpStatus.FORBIDDEN, detail, "FORBIDDEN");
     }
 
     @ExceptionHandler(Exception.class)

@@ -10,4 +10,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     @EntityGraph(attributePaths = "organization")
     Optional<User> findByEmail(String normalizedEmail);
+
+    @EntityGraph(attributePaths = "organization")
+    Optional<User> findWithOrganizationById(UUID id);
 }

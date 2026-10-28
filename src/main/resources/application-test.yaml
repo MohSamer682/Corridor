@@ -1,3 +1,4 @@
 spring:
   docker.compose.enabled: false
   messages.basename: messages,i18n/test-messages
+app.security.refresh-cookie.secure: false
