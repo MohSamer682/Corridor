@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate, type RouteObject } from 'react-router';
 import { TeamsPage } from '../features/admin-users/TeamsPage';
+import { AuditLogPage } from '../features/audit/AuditLogPage';
 import { UsersPage } from '../features/admin-users/UsersPage';
 import { LoginPage } from '../features/auth/LoginPage';
 import { ProfilePage } from '../features/auth/ProfilePage';
@@ -25,6 +26,7 @@ export const routes: RouteObject[] = [
             children: [
               { path: 'admin/users', element: <UsersPage /> },
               { path: 'admin/teams', element: <TeamsPage /> },
+              { path: 'admin/audit', element: <AuditLogPage /> },
             ],
           },
         ],

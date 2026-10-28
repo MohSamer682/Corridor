@@ -198,6 +198,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/audit-events': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List audit events, newest first (admins and HR) */
+    get: operations['list_2'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/audit-events/verification': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Check that no audit event was changed or removed (admins and HR) */
+    get: operations['verify'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -321,6 +355,34 @@ export interface components {
       totalItems?: number;
       /** Format: int32 */
       totalPages?: number;
+    };
+    AuditEventView: {
+      /** Format: uuid */
+      id?: string;
+      action?: string;
+      /** Format: date-time */
+      createdAt?: string;
+      /** Format: uuid */
+      actorId?: string;
+      targetType?: string;
+      /** Format: uuid */
+      targetId?: string;
+      details?: {
+        [key: string]: string;
+      };
+    };
+    CursorResponseAuditEventView: {
+      items?: components['schemas']['AuditEventView'][];
+      nextCursor?: string;
+    };
+    ChainVerification: {
+      intact?: boolean;
+      /** Format: int64 */
+      checked?: number;
+      /** Format: uuid */
+      firstAlteredId?: string;
+      /** Format: date-time */
+      firstAlteredAt?: string;
     };
   };
   responses: never;
@@ -955,6 +1017,80 @@ export interface operations {
         };
         content: {
           '*/*': components['schemas']['UserView'];
+        };
+      };
+    };
+  };
+  list_2: {
+    parameters: {
+      query?: {
+        action?: string;
+        actorId?: string;
+        from?: string;
+        to?: string;
+        cursor?: string;
+        size?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description A slice of events; pass nextCursor to get the next one */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['CursorResponseAuditEventView'];
+        };
+      };
+      /** @description The cursor is broken or the time range is backwards */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['CursorResponseAuditEventView'];
+        };
+      };
+      /** @description Not an admin or HR */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['CursorResponseAuditEventView'];
+        };
+      };
+    };
+  };
+  verify: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Whether the log is intact, and the first altered event if not */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['ChainVerification'];
+        };
+      };
+      /** @description Not an admin or HR */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['ChainVerification'];
         };
       };
     };
