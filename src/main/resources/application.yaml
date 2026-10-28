@@ -14,3 +14,4 @@ management:
 app.security.jwt.issuer: corridor
 springdoc.api-docs.enabled: false
 springdoc.swagger-ui.enabled: false
+spring.data.web.pageable.max-page-size: 100
