@@ -3,13 +3,17 @@ package com.corridor.office.identity.application;
 import com.corridor.office.common.api.PageResponse;
 import com.corridor.office.common.domain.ConflictException;
 import com.corridor.office.common.security.CurrentUser;
+import com.corridor.office.common.security.Role;
+import com.corridor.office.identity.domain.Team;
 import com.corridor.office.identity.domain.User;
 import com.corridor.office.identity.domain.UserStatus;
 import com.corridor.office.identity.domain.events.RoleChanged;
 import com.corridor.office.identity.domain.events.UserCreated;
+import com.corridor.office.identity.domain.events.UserTeamChanged;
 import com.corridor.office.identity.infrastructure.OrganizationRepository;
 import com.corridor.office.identity.infrastructure.UserRepository;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.UUID;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
@@ -70,7 +74,8 @@ public class UserService {
         user.changeJobTitle(newUser.jobTitle());
         user.moveToTeam(managed.team(actor, newUser.teamId()));
         users.saveAndFlush(user);
-        events.publishEvent(new UserCreated(user.id(), actor.organizationId(), actor.userId()));
+        events.publishEvent(new UserCreated(
+                user.id(), actor.organizationId(), actor.userId(), user.displayName(), user.email(), user.role()));
         return UserView.of(managed.load(actor, user.id()));
     }
 
@@ -82,6 +87,7 @@ public class UserService {
             throw new ConflictException("users.stale");
         }
         var previousRole = user.role();
+        var previousTeam = user.team();
         var roleChanges = previousRole != changes.role();
         if (roleChanges) {
             managed.refuseSelf(actor, id, "users.self.role");
@@ -93,10 +99,27 @@ public class UserService {
         user.changeRole(changes.role());
         user.moveToTeam(managed.team(actor, changes.teamId()));
         users.saveAndFlush(user);
-        if (roleChanges) {
-            events.publishEvent(
-                    new RoleChanged(id, actor.organizationId(), actor.userId(), previousRole, changes.role()));
-        }
+        publishChanges(actor, user, previousRole, previousTeam);
         return UserView.of(user);
+    }
+
+    private void publishChanges(CurrentUser actor, User user, Role previousRole, Team previousTeam) {
+        if (previousRole != user.role()) {
+            events.publishEvent(new RoleChanged(
+                    user.id(), actor.organizationId(), actor.userId(), user.displayName(), previousRole, user.role()));
+        }
+        if (!Objects.equals(idOf(previousTeam), idOf(user.team()))) {
+            events.publishEvent(new UserTeamChanged(
+                    user.id(),
+                    actor.organizationId(),
+                    actor.userId(),
+                    user.displayName(),
+                    Team.nameOf(previousTeam),
+                    Team.nameOf(user.team())));
+        }
+    }
+
+    private static UUID idOf(Team team) {
+        return team == null ? null : team.id();
     }
 }

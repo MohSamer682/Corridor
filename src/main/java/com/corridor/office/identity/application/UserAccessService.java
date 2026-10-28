@@ -3,8 +3,10 @@ package com.corridor.office.identity.application;
 import com.corridor.office.common.domain.ConflictException;
 import com.corridor.office.common.security.CurrentUser;
 import com.corridor.office.common.security.Role;
+import com.corridor.office.identity.domain.Team;
 import com.corridor.office.identity.domain.User;
 import com.corridor.office.identity.domain.events.UserApproved;
+import com.corridor.office.identity.domain.events.UserDeclined;
 import com.corridor.office.identity.domain.events.UserReactivated;
 import com.corridor.office.identity.domain.events.UserRemoved;
 import com.corridor.office.identity.domain.events.UserSuspended;
@@ -43,7 +45,7 @@ public class UserAccessService {
         managed.refuseLastActiveAdmin(user);
         user.suspend();
         refreshTokens.revokeAllFor(id);
-        events.publishEvent(new UserSuspended(id, actor.organizationId(), actor.userId()));
+        events.publishEvent(new UserSuspended(id, actor.organizationId(), actor.userId(), user.displayName()));
     }
 
     @Transactional
@@ -51,7 +53,7 @@ public class UserAccessService {
         var user = managed.load(actor, id);
         managed.refusePending(user);
         user.reactivate();
-        events.publishEvent(new UserReactivated(id, actor.organizationId(), actor.userId()));
+        events.publishEvent(new UserReactivated(id, actor.organizationId(), actor.userId(), user.displayName()));
     }
 
     @Transactional
@@ -59,12 +61,16 @@ public class UserAccessService {
         var user = pendingRequest(actor, id);
         managed.refuseAdminChangeByHr(actor, Role.EMPLOYEE, role);
         user.approve(role, managed.team(actor, teamId));
-        events.publishEvent(new UserApproved(id, actor.organizationId(), actor.userId(), role));
+        events.publishEvent(new UserApproved(
+                id, actor.organizationId(), actor.userId(), user.displayName(), role, Team.nameOf(user.team())));
     }
 
     @Transactional
     public void decline(CurrentUser actor, UUID id) {
-        users.delete(pendingRequest(actor, id));
+        var request = pendingRequest(actor, id);
+        users.delete(request);
+        events.publishEvent(
+                new UserDeclined(id, actor.organizationId(), actor.userId(), request.displayName(), request.email()));
     }
 
     @Transactional
@@ -74,7 +80,7 @@ public class UserAccessService {
         managed.refuseSelf(actor, id, "users.self.remove");
         managed.refuseLastActiveAdmin(user);
         users.delete(user);
-        events.publishEvent(new UserRemoved(id, actor.organizationId(), actor.userId()));
+        events.publishEvent(new UserRemoved(id, actor.organizationId(), actor.userId(), user.displayName()));
     }
 
     private User pendingRequest(CurrentUser actor, UUID id) {
