@@ -33,7 +33,11 @@ public class SecurityConfig {
                 .cors(configurer -> configurer.configurationSource(corsSource(cors)))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(requests -> requests.requestMatchers(
-                                HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/logout")
+                                HttpMethod.POST,
+                                "/api/v1/auth/login",
+                                "/api/v1/auth/refresh",
+                                "/api/v1/auth/logout",
+                                "/api/v1/auth/registrations")
                         .permitAll()
                         .requestMatchers(
                                 HttpMethod.GET,

@@ -1,6 +1,10 @@
 package com.corridor.office.identity.application;
 
+import com.corridor.office.common.domain.ConflictException;
 import com.corridor.office.common.security.CurrentUser;
+import com.corridor.office.common.security.Role;
+import com.corridor.office.identity.domain.User;
+import com.corridor.office.identity.domain.events.UserApproved;
 import com.corridor.office.identity.domain.events.UserReactivated;
 import com.corridor.office.identity.domain.events.UserRemoved;
 import com.corridor.office.identity.domain.events.UserSuspended;
@@ -12,7 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN', 'HR')")
 public class UserAccessService {
 
     private final UserRepository users;
@@ -34,6 +38,7 @@ public class UserAccessService {
     @Transactional
     public void suspend(CurrentUser actor, UUID id) {
         var user = managed.load(actor, id);
+        managed.refusePending(user);
         managed.refuseSelf(actor, id, "users.self.suspend");
         managed.refuseLastActiveAdmin(user);
         user.suspend();
@@ -43,16 +48,40 @@ public class UserAccessService {
 
     @Transactional
     public void reactivate(CurrentUser actor, UUID id) {
-        managed.load(actor, id).reactivate();
+        var user = managed.load(actor, id);
+        managed.refusePending(user);
+        user.reactivate();
         events.publishEvent(new UserReactivated(id, actor.organizationId(), actor.userId()));
     }
 
     @Transactional
+    public void approve(CurrentUser actor, UUID id, Role role, UUID teamId) {
+        var user = pendingRequest(actor, id);
+        managed.refuseAdminChangeByHr(actor, Role.EMPLOYEE, role);
+        user.approve(role, managed.team(actor, teamId));
+        events.publishEvent(new UserApproved(id, actor.organizationId(), actor.userId(), role));
+    }
+
+    @Transactional
+    public void decline(CurrentUser actor, UUID id) {
+        users.delete(pendingRequest(actor, id));
+    }
+
+    @Transactional
+    @PreAuthorize("hasRole('ADMIN')")
     public void remove(CurrentUser actor, UUID id) {
         var user = managed.load(actor, id);
         managed.refuseSelf(actor, id, "users.self.remove");
         managed.refuseLastActiveAdmin(user);
         users.delete(user);
         events.publishEvent(new UserRemoved(id, actor.organizationId(), actor.userId()));
+    }
+
+    private User pendingRequest(CurrentUser actor, UUID id) {
+        var user = managed.load(actor, id);
+        if (!user.isPending()) {
+            throw new ConflictException("users.notPending");
+        }
+        return user;
     }
 }

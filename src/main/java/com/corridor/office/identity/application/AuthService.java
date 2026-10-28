@@ -44,6 +44,9 @@ public class AuthService {
         if (!user.passwordMatches(passwordEncoder, password)) {
             throw new InvalidCredentialsException();
         }
+        if (user.isPending()) {
+            throw new AccountPendingException();
+        }
         if (!user.isActive()) {
             throw new AccountSuspendedException();
         }

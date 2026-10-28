@@ -13,23 +13,20 @@ import com.corridor.office.identity.domain.User;
 import com.corridor.office.identity.infrastructure.OrganizationRepository;
 import com.corridor.office.identity.infrastructure.UserRepository;
 import com.corridor.office.support.MutableClock;
+import com.corridor.office.support.MutableClockConfiguration;
 import java.time.Duration;
-import java.time.Instant;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootTest
-@Import({TestcontainersConfiguration.class, AuthServiceIntegrationTest.ClockConfig.class})
+@Import({TestcontainersConfiguration.class, MutableClockConfiguration.class})
 @ActiveProfiles("test")
 class AuthServiceIntegrationTest {
 
@@ -183,15 +180,5 @@ class AuthServiceIntegrationTest {
         jdbc.sql("update users set status = 'SUSPENDED' where email = :email")
                 .param("email", email)
                 .update();
-    }
-
-    @TestConfiguration(proxyBeanMethods = false)
-    static class ClockConfig {
-
-        @Bean
-        @Primary
-        MutableClock mutableClock() {
-            return new MutableClock(Instant.now());
-        }
     }
 }

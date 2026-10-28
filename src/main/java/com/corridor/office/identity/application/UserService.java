@@ -19,7 +19,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@PreAuthorize("hasRole('ADMIN')")
 public class UserService {
 
     private final UserRepository users;
@@ -42,6 +41,7 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("hasAnyRole('ADMIN', 'HR')")
     public PageResponse<UserSummary> list(
             CurrentUser actor, UserStatus status, UUID teamId, String query, Pageable pageable) {
         var pattern =
@@ -50,11 +50,13 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("hasAnyRole('ADMIN', 'HR')")
     public UserView get(CurrentUser actor, UUID id) {
         return UserView.of(managed.load(actor, id));
     }
 
     @Transactional
+    @PreAuthorize("hasRole('ADMIN')")
     public UserView create(CurrentUser actor, NewUser newUser) {
         if (users.existsByEmail(User.normalizeEmail(newUser.email()))) {
             throw new ConflictException("users.duplicateEmail");
@@ -73,6 +75,7 @@ public class UserService {
     }
 
     @Transactional
+    @PreAuthorize("hasAnyRole('ADMIN', 'HR')")
     public UserView update(CurrentUser actor, UUID id, long expectedVersion, UserChanges changes) {
         var user = managed.load(actor, id);
         if (user.version() != expectedVersion) {
@@ -82,6 +85,7 @@ public class UserService {
         var roleChanges = previousRole != changes.role();
         if (roleChanges) {
             managed.refuseSelf(actor, id, "users.self.role");
+            managed.refuseAdminChangeByHr(actor, previousRole, changes.role());
             managed.refuseLastActiveAdmin(user);
         }
         user.rename(changes.displayName());
