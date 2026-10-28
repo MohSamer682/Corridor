@@ -1,4 +1,4 @@
-package com.corridor.office.identity.domain;
+package com.corridor.office.common.security;
 
 public enum Role {
     ADMIN,

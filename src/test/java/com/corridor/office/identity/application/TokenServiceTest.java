@@ -3,8 +3,8 @@ package com.corridor.office.identity.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.corridor.office.common.security.Role;
 import com.corridor.office.identity.domain.IdentityFixtures;
-import com.corridor.office.identity.domain.Role;
 import com.corridor.office.identity.domain.User;
 import com.corridor.office.identity.infrastructure.JwtConfig;
 import com.corridor.office.identity.infrastructure.JwtProperties;

@@ -2,6 +2,7 @@ package com.corridor.office.identity.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.corridor.office.common.security.Role;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;

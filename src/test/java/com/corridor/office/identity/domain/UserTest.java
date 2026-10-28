@@ -2,6 +2,7 @@ package com.corridor.office.identity.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.corridor.office.common.security.Role;
 import com.corridor.office.config.PasswordConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -48,6 +49,31 @@ class UserTest {
         var user = User.register(organization, "a@b.c", "A", Role.EMPLOYEE, null);
 
         assertThat(user.passwordMatches(encoder, "anything")).isFalse();
+    }
+
+    @Test
+    void shouldMoveUserToTeamAndOutAgain() {
+        var user = User.register(organization, "a@b.c", "A", Role.EMPLOYEE, "hash");
+        var team = Team.create(organization, "Design", "#23395D");
+
+        user.moveToTeam(team);
+        assertThat(user.team()).isSameAs(team);
+
+        user.moveToTeam(null);
+        assertThat(user.team()).isNull();
+    }
+
+    @Test
+    void shouldChangeRoleNameAndJobTitle() {
+        var user = User.register(organization, "a@b.c", "A", Role.EMPLOYEE, "hash");
+
+        user.changeRole(Role.MANAGER);
+        user.rename("  Salma Ibrahim ");
+        user.changeJobTitle("Head of product");
+
+        assertThat(user.role()).isEqualTo(Role.MANAGER);
+        assertThat(user.displayName()).isEqualTo("Salma Ibrahim");
+        assertThat(user.jobTitle()).isEqualTo("Head of product");
     }
 
     @Test

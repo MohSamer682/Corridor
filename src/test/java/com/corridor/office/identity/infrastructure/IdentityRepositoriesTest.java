@@ -4,11 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.corridor.office.TestcontainersConfiguration;
+import com.corridor.office.common.security.Role;
 import com.corridor.office.config.JpaAuditingConfig;
 import com.corridor.office.identity.domain.IdentityFixtures;
 import com.corridor.office.identity.domain.Organization;
 import com.corridor.office.identity.domain.RefreshToken;
-import com.corridor.office.identity.domain.Role;
+import com.corridor.office.identity.domain.Team;
 import com.corridor.office.identity.domain.User;
 import jakarta.persistence.EntityManager;
 import java.time.DayOfWeek;
@@ -52,6 +53,32 @@ class IdentityRepositoriesTest {
     @BeforeEach
     void saveOrganization() {
         organization = organizations.saveAndFlush(IdentityFixtures.organization());
+    }
+
+    @Autowired
+    TeamRepository teams;
+
+    @Test
+    void shouldRejectASecondTeamWithTheSameNameIgnoringCase() {
+        teams.saveAndFlush(Team.create(organization, "Design", "#23395D"));
+
+        assertThatThrownBy(() -> teams.saveAndFlush(Team.create(organization, "design", "#2F7D6D")))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void shouldRefuseToDeleteATeamThatHasMembers() {
+        var team = teams.saveAndFlush(Team.create(organization, "Design", "#23395D"));
+        var user = User.register(organization, "t@corridor.local", "T", Role.EMPLOYEE, "{noop}x");
+        user.moveToTeam(team);
+        users.saveAndFlush(user);
+        entityManager.clear();
+
+        assertThatThrownBy(() -> {
+                    teams.deleteById(team.id());
+                    teams.flush();
+                })
+                .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test

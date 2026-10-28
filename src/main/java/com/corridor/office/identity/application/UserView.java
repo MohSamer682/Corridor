@@ -1,6 +1,6 @@
 package com.corridor.office.identity.application;
 
-import com.corridor.office.identity.domain.Role;
+import com.corridor.office.common.security.Role;
 import com.corridor.office.identity.domain.User;
 import java.util.UUID;
 
