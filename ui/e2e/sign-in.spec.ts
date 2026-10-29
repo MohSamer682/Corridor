@@ -4,8 +4,9 @@ import { expect, test, type Page } from '@playwright/test';
 // Runs against the real API: start the backend with the local profile, then set E2E_API=1.
 test.skip(!process.env.E2E_API, 'needs the local backend on :8080');
 
+// Starts from the profile so sign-in returns there; the office has its own spec.
 async function signIn(page: Page, password = 'Corridor-local-1') {
-  await page.goto('/login');
+  await page.goto('/me');
   await page.getByLabel('Work email').fill('nour@corridor.local');
   await page.getByLabel('Password', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Sign in' }).click();

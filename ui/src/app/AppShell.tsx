@@ -3,6 +3,12 @@ import { initials } from '../features/auth/initials';
 import { useSessionStore } from '../features/auth/sessionStore';
 import { BrandMark } from './BrandMark';
 
+const adminLinks = [
+  ['/admin/users', 'People'],
+  ['/admin/teams', 'Teams'],
+  ['/admin/audit', 'Audit log'],
+] as const;
+
 export function AppShell() {
   const user = useSessionStore((state) => state.user);
   return (
@@ -17,17 +23,16 @@ export function AppShell() {
         <Link to="/" className="flex min-h-11 items-center text-ink no-underline">
           <BrandMark />
         </Link>
-        {(user?.role === 'ADMIN' || user?.role === 'HR') && (
+        {user && (
           <nav
             aria-label="Main"
             className="order-3 flex w-full gap-1 overflow-x-auto sm:order-none sm:w-auto"
           >
             {(
               [
+                ['/office', 'Office'],
                 ['/me', 'Profile'],
-                ['/admin/users', 'People'],
-                ['/admin/teams', 'Teams'],
-                ['/admin/audit', 'Audit log'],
+                ...(user.role === 'ADMIN' || user.role === 'HR' ? adminLinks : []),
               ] as const
             ).map(([to, text]) => (
               <NavLink

@@ -5,7 +5,8 @@ import { expect, test, type Page } from '@playwright/test';
 test.skip(!process.env.E2E_API, 'needs the local backend on :8080');
 
 async function signInAsAdmin(page: Page) {
-  await page.goto('/login');
+  // Start from the profile so sign-in returns there and skips the 3D office.
+  await page.goto('/me');
   await page.getByLabel('Work email').fill('admin@corridor.local');
   await page.getByLabel('Password', { exact: true }).fill('Corridor-local-1');
   await page.getByRole('button', { name: 'Sign in' }).click();
@@ -26,6 +27,8 @@ test('admin adds a person, suspends, reactivates and removes them', async ({ pag
   await expect(add).toBeHidden();
 
   await page.getByLabel('Search people').fill(email);
+  // Earlier runs may have left a Test Person behind; wait until the search narrows to ours.
+  await expect(page.getByRole('button', { name: 'Edit Test Person' })).toHaveCount(1);
   await page.getByRole('button', { name: 'Edit Test Person' }).click();
   const sheet = page.getByRole('dialog', { name: 'Test Person' });
   await sheet.getByRole('button', { name: 'Suspend' }).click();

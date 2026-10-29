@@ -10,7 +10,7 @@ it('restores the session from the refresh cookie after a reload', async () => {
     [200, tokenResponse('restored').user],
   ]);
 
-  renderApp('/');
+  renderApp('/me');
 
   expect(await screen.findByRole('heading', { name: 'Your profile' })).toBeInTheDocument();
 });
