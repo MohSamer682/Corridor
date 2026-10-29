@@ -198,6 +198,57 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/floors/{id}/rooms': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Rooms and open areas on a floor, with how many seats each has */
+    get: operations['rooms'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/floors/{id}/layout': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** A floor's grid, decor, rooms and seats; send the ETag back in If-None-Match */
+    get: operations['layout'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/campus': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Buildings of your company with their floors, in one call */
+    get: operations['campus'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/audit-events': {
     parameters: {
       query?: never;
@@ -355,6 +406,87 @@ export interface components {
       totalItems?: number;
       /** Format: int32 */
       totalPages?: number;
+    };
+    RoomView: {
+      /** Format: uuid */
+      id?: string;
+      key?: string;
+      name?: string;
+      /** @enum {string} */
+      kind?: 'OFFICE' | 'MEETING' | 'CONFERENCE' | 'HALL' | 'BOOTH' | 'SOCIAL' | 'LAB' | 'ZONE';
+      /** Format: int32 */
+      minX?: number;
+      /** Format: int32 */
+      minY?: number;
+      /** Format: int32 */
+      maxX?: number;
+      /** Format: int32 */
+      maxY?: number;
+      isPrivate?: boolean;
+      /** Format: uuid */
+      ownerId?: string;
+      /** Format: int32 */
+      capacity?: number;
+    };
+    FloorLayoutView: {
+      /** Format: uuid */
+      floorId?: string;
+      /** Format: int32 */
+      version?: number;
+      /** Format: int32 */
+      width?: number;
+      /** Format: int32 */
+      height?: number;
+      arrival?: components['schemas']['Position'];
+      tiles?: string;
+      furniture?: {
+        [key: string]: unknown;
+      };
+      rooms?: components['schemas']['RoomView'][];
+      seats?: components['schemas']['SeatView'][];
+    };
+    Position: {
+      /** Format: int32 */
+      x?: number;
+      /** Format: int32 */
+      y?: number;
+    };
+    SeatView: {
+      /** Format: uuid */
+      id?: string;
+      /** Format: uuid */
+      roomId?: string;
+      /** Format: int32 */
+      x?: number;
+      /** Format: int32 */
+      y?: number;
+      /** @enum {string} */
+      facing?: 'N' | 'S' | 'E' | 'W';
+      /** @enum {string} */
+      kind?: 'DESK' | 'CHAIR' | 'STOOL' | 'SOFA' | 'THEATRE';
+      /** Format: uuid */
+      assignedUserId?: string;
+    };
+    BuildingView: {
+      /** Format: uuid */
+      id?: string;
+      name?: string;
+      subtitle?: string;
+      campusX?: number;
+      campusZ?: number;
+      floors?: components['schemas']['FloorSummary'][];
+    };
+    CampusView: {
+      buildings?: components['schemas']['BuildingView'][];
+    };
+    FloorSummary: {
+      /** Format: uuid */
+      id?: string;
+      /** Format: int32 */
+      level?: number;
+      code?: string;
+      name?: string;
+      details?: string;
     };
     AuditEventView: {
       /** Format: uuid */
@@ -1017,6 +1149,97 @@ export interface operations {
         };
         content: {
           '*/*': components['schemas']['UserView'];
+        };
+      };
+    };
+  };
+  rooms: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Rooms ordered by name */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['RoomView'][];
+        };
+      };
+      /** @description No such floor in your company */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['RoomView'][];
+        };
+      };
+    };
+  };
+  layout: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The current layout, with ETag "floorId:version" */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['FloorLayoutView'];
+        };
+      };
+      /** @description The layout hasn't changed since that ETag */
+      304: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['FloorLayoutView'];
+        };
+      };
+      /** @description No such floor in your company */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['FloorLayoutView'];
+        };
+      };
+    };
+  };
+  campus: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Buildings in campus order, floors from the ground up */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['CampusView'];
         };
       };
     };
