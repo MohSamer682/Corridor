@@ -1,7 +1,7 @@
 package com.corridor.office.spaces.domain;
 
 import com.corridor.office.common.domain.AuditedEntity;
-import com.corridor.office.spaces.domain.TileGrid.Tile;
+import com.corridor.office.spaces.TileGrid.Tile;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

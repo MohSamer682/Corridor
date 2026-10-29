@@ -1,10 +1,12 @@
-package com.corridor.office.spaces.domain;
+package com.corridor.office.spaces;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 /**
  * A floor as a grid of one-character tiles, row by row: {@code C} outer wall, {@code #} wall, {@code G} glass,
@@ -63,6 +65,11 @@ public final class TileGrid {
 
     /** Shortest walk from {@code from} to {@code to}, excluding {@code from}; empty when {@code to} can't be reached. */
     public List<Tile> path(Tile from, Tile to) {
+        return path(from, to, Set.of());
+    }
+
+    /** Like {@link #path(Tile, Tile)}, but walks around {@code blocked} tiles other than the target. */
+    public List<Tile> path(Tile from, Tile to, Set<Tile> blocked) {
         if (!isWalkable(to)) {
             return List.of();
         }
@@ -77,13 +84,38 @@ public final class TileGrid {
             }
             for (var step : STEPS) {
                 var next = new Tile(current.x() + step[0], current.y() + step[1]);
-                if (isWalkable(next) && cameFrom[index(next)] < 0) {
+                var open = next.equals(to) || !blocked.contains(next);
+                if (isWalkable(next) && open && cameFrom[index(next)] < 0) {
                     cameFrom[index(next)] = index(current);
                     queue.add(next);
                 }
             }
         }
         return List.of();
+    }
+
+    /** The walkable tile nearest to {@code start} that isn't taken, or empty if the floor is full. */
+    public Optional<Tile> nearestFree(Tile start, Set<Tile> taken) {
+        var seen = new boolean[width * height];
+        var queue = new ArrayDeque<Tile>();
+        if (contains(start)) {
+            seen[index(start)] = true;
+            queue.add(start);
+        }
+        while (!queue.isEmpty()) {
+            var current = queue.poll();
+            if (isWalkable(current) && !taken.contains(current)) {
+                return Optional.of(current);
+            }
+            for (var step : STEPS) {
+                var next = new Tile(current.x() + step[0], current.y() + step[1]);
+                if (contains(next) && !seen[index(next)] && tiles.charAt(index(next)) != 'C') {
+                    seen[index(next)] = true;
+                    queue.add(next);
+                }
+            }
+        }
+        return Optional.empty();
     }
 
     private List<Tile> trace(int[] cameFrom, Tile from, Tile to) {
