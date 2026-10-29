@@ -46,17 +46,18 @@ it('disables the button while signing in', async () => {
   expect(screen.getByRole('button', { name: 'Signing in…' })).toBeDisabled();
 });
 
-it('opens the profile after signing in', async () => {
+it('opens the office after signing in', async () => {
   stubFetch([
     [200, tokenResponse('t')],
-    [200, tokenResponse('t').user],
+    [200, { buildings: [] }],
   ]);
-  renderApp('/login');
+  const router = renderApp('/login');
 
   await fillValidCredentials();
   await user.click(screen.getByRole('button', { name: 'Sign in' }));
 
-  expect(await screen.findByRole('heading', { name: 'Your profile' })).toBeInTheDocument();
+  expect(await screen.findByText("Your office isn't set up yet.")).toBeInTheDocument();
+  expect(router.state.location.pathname).toBe('/office');
   expect(useSessionStore.getState().accessToken).toBe('t');
 });
 

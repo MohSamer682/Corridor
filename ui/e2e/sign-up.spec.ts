@@ -22,10 +22,10 @@ test('someone signs up, waits for approval, and signs in once approved', async (
     'Your account is waiting for approval. HR will let you know.',
   );
 
+  await page.goto('/admin/users');
   await page.getByLabel('Work email').fill('admin@corridor.local');
   await page.getByLabel('Password', { exact: true }).fill('Corridor-local-1');
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await page.getByRole('link', { name: 'People' }).click();
   await page.getByRole('tab', { name: /Requests/ }).click();
   const request = page
     .getByText(email)
@@ -39,6 +39,7 @@ test('someone signs up, waits for approval, and signs in once approved', async (
   await page.getByLabel('Work email').fill(email);
   await page.getByLabel('Password', { exact: true }).fill('Corridor-pass-1');
   await page.getByRole('button', { name: 'Sign in' }).click();
+  // Sign-out came from the profile, so signing back in returns there.
   await expect(page.getByRole('heading', { name: 'Your profile' })).toBeVisible();
 });
 
