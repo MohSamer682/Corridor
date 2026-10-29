@@ -10,6 +10,7 @@ import {
   current,
   cyl,
   grp,
+  markShared,
   mergeInto,
   pickFrom,
   rbox,
@@ -87,6 +88,7 @@ function envTextures(): EnvTextures {
   g.fillRect(0, 60, 256, 2);
   const road = canvasTex(c, [1, 1]);
 
+  for (const texture of [skyTex, grass, pave, road]) markShared(texture);
   env = { sky: skyTex, grass, pave, road };
   return env;
 }

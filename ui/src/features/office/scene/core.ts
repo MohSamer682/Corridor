@@ -69,6 +69,14 @@ export const FACE: Record<string, number> = {
   left: -Math.PI / 2,
 };
 
+/** Cached materials and textures that every scene reuses; dropping one scene must leave them alone. */
+const shared = new WeakSet<object>();
+export const isShared = (resource: object) => shared.has(resource);
+export const markShared = <T extends object>(resource: T) => {
+  shared.add(resource);
+  return resource;
+};
+
 let maxAnisotropy = 4;
 export const setMaxAnisotropy = (value: number) => {
   maxAnisotropy = value;
@@ -102,6 +110,7 @@ const once = (key: string, make: () => THREE.Texture) => {
   if (!t) {
     t = make();
     textures.set(key, t);
+    markShared(t);
   }
   return t;
 };
@@ -359,6 +368,7 @@ export function M(color: string, options: MaterialOptions = {}) {
     ? new THREE.MeshPhysicalMaterial(params)
     : new THREE.MeshStandardMaterial(params);
   materials.set(key, material);
+  markShared(material);
   return material;
 }
 
@@ -368,6 +378,7 @@ export function PM(key: string, params: THREE.MeshPhysicalMaterialParameters) {
   if (cached) return cached;
   const material = new THREE.MeshPhysicalMaterial(params);
   materials.set('P|' + key, material);
+  markShared(material);
   return material;
 }
 
@@ -521,14 +532,24 @@ export function grp(x: number, z: number, ry = 0, y = 0) {
   return g;
 }
 
-/** Bakes a group into one mesh per material, which keeps draw calls low on furnished floors. */
+/**
+ * Bakes a group into one mesh per material, which keeps draw calls low on furnished floors.
+ * Indexed and unindexed shapes are baked apart: unindexing a sphere or cylinder copies each
+ * shared vertex up to six times, and every copy is shaded again in the shadow and AO passes.
+ */
 export function mergeInto(scene: THREE.Object3D, group: THREE.Group, shadows = true) {
   group.updateMatrixWorld(true);
-  const byMaterial = new Map<THREE.Material, THREE.BufferGeometry[]>();
+  const buckets = new Map<
+    string,
+    { material: THREE.Material; geometries: THREE.BufferGeometry[] }
+  >();
+  const sources = new Set<THREE.BufferGeometry>();
   group.traverse((object) => {
     if (!(object instanceof THREE.Mesh)) return;
     const source = object.geometry as THREE.BufferGeometry;
-    const geometry = source.index ? source.toNonIndexed() : source.clone();
+    sources.add(source);
+    // copy() rather than clone(): clone() first rebuilds the shape from its constructor defaults.
+    const geometry = new THREE.BufferGeometry().copy(source);
     geometry.applyMatrix4(object.matrixWorld);
     for (const name of Object.keys(geometry.attributes)) {
       if (!['position', 'normal', 'uv'].includes(name)) geometry.deleteAttribute(name);
@@ -538,16 +559,19 @@ export function mergeInto(scene: THREE.Object3D, group: THREE.Group, shadows = t
       geometry.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(count * 2), 2));
     }
     const material = object.material as THREE.Material;
-    const list = byMaterial.get(material) ?? [];
-    list.push(geometry);
-    byMaterial.set(material, list);
+    const key = `${material.uuid}|${geometry.index ? 'i' : 'n'}`;
+    const bucket = buckets.get(key) ?? { material, geometries: [] };
+    bucket.geometries.push(geometry);
+    buckets.set(key, bucket);
   });
-  byMaterial.forEach((geometries, material) => {
+  buckets.forEach(({ material, geometries }) => {
     const merged = mergeGeometries(geometries);
+    for (const geometry of geometries) geometry.dispose();
     if (!merged) return;
     const mesh = new THREE.Mesh(merged, material);
     mesh.castShadow = shadows && !material.transparent;
     mesh.receiveShadow = true;
     scene.add(mesh);
   });
+  for (const source of sources) source.dispose();
 }
