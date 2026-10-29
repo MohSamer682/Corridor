@@ -7,8 +7,9 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { floorModel, type FloorModel } from '../floorModel';
 import type { OfficeView, Tools } from '../types';
 import { PITCH, clampZoom, targetScale, type CameraMode } from './camera';
-import { setMaxAnisotropy } from './core';
+import { isShared, setMaxAnisotropy } from './core';
 import { R_CAM } from './environment';
+import { SceneCache } from './sceneCache';
 import { buildCampus, buildFloorScene, buildStack, type BuiltScene } from './scenes';
 
 export type EngineCallbacks = {
@@ -18,6 +19,9 @@ export type EngineCallbacks = {
 };
 
 type Label = { id: string; element: HTMLElement };
+
+// Each scene keeps its textures and a 4096² shadow map on the GPU, so only the last few stay built.
+const KEPT_SCENES = 3;
 
 // Ambient occlusion skips glass so panes don't darken what is behind them.
 class GlassAwareAO extends GTAOPass {
@@ -41,7 +45,13 @@ export class OfficeEngine {
   private composer: EffectComposer | null = null;
   private renderPass: RenderPass | null = null;
   private aoPass: GlassAwareAO | null = null;
-  private readonly scenes = new Map<string, BuiltScene>();
+  private readonly scenes = new SceneCache<BuiltScene>(KEPT_SCENES, (built) =>
+    disposeScene(built.scene, true),
+  );
+  private readonly compiled = new WeakSet<BuiltScene>();
+  private wanted: BuiltScene | null = null;
+  private shadowsDirty = true;
+  private disposed = false;
   private active: BuiltScene | null = null;
   private mode: CameraMode = 'campus';
   private labels: Label[] = [];
@@ -84,6 +94,8 @@ export class OfficeEngine {
     this.renderer.setPixelRatio(software ? 1 : Math.min(2, window.devicePixelRatio || 1));
     this.renderer.shadowMap.enabled = !software;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
+    // The sun never moves, so the shadow map is redrawn only when the scene itself changes.
+    this.renderer.shadowMap.autoUpdate = false;
     this.renderer.toneMapping = THREE.NeutralToneMapping;
     this.renderer.toneMappingExposure = 0.92;
     setMaxAnisotropy(this.renderer.capabilities.getMaxAnisotropy());
@@ -100,7 +112,6 @@ export class OfficeEngine {
     canvas.addEventListener('pointerdown', this.onPointerDown);
     canvas.addEventListener('pointerup', this.onPointerUp);
     canvas.addEventListener('wheel', this.onWheel, { passive: false });
-    this.raf = requestAnimationFrame(this.frame);
   }
 
   show(view: OfficeView) {
@@ -110,20 +121,40 @@ export class OfficeEngine {
       built = this.build(view);
       this.scenes.set(key, built);
     }
-    if (built !== this.active) {
-      this.active = built;
-      this.mode = view.mode;
-      this.snap = true;
-      this.focus = null;
-      this.zoom = 1;
-      this.hovered = null;
-      built.setCutaway?.(this.tools.cutaway);
+    const scene = built;
+    this.wanted = scene;
+    const activate = () => {
+      if (this.disposed || this.wanted !== scene) return;
+      if (scene !== this.active) {
+        this.active = scene;
+        this.mode = view.mode;
+        this.snap = true;
+        this.focus = null;
+        this.zoom = 1;
+        this.hovered = null;
+        this.shadowsDirty = true;
+        scene.setCutaway?.(this.tools.cutaway);
+      }
+      this.makeLabels(view, scene);
+      this.wake();
+    };
+    if (this.compiled.has(scene)) {
+      activate();
+      return;
     }
-    this.makeLabels(view, built);
-    this.wake();
+    // Compile the scene's shaders off the main thread where the browser allows it,
+    // so the first frame doesn't stall while the GPU driver builds them.
+    this.renderer
+      .compileAsync(scene.scene, this.camera)
+      .catch(() => undefined)
+      .then(() => {
+        this.compiled.add(scene);
+        activate();
+      });
   }
 
   setTools(tools: Tools) {
+    if (tools.cutaway !== this.tools.cutaway) this.shadowsDirty = true;
     this.tools = tools;
     for (const scene of this.scenes.values()) scene.setCutaway?.(tools.cutaway);
     this.wake();
@@ -145,6 +176,7 @@ export class OfficeEngine {
   }
 
   dispose() {
+    this.disposed = true;
     cancelAnimationFrame(this.raf);
     this.resize.disconnect();
     this.canvas.removeEventListener('pointermove', this.onPointerMove);
@@ -152,7 +184,7 @@ export class OfficeEngine {
     this.canvas.removeEventListener('pointerdown', this.onPointerDown);
     this.canvas.removeEventListener('pointerup', this.onPointerUp);
     this.canvas.removeEventListener('wheel', this.onWheel);
-    for (const built of this.scenes.values()) disposeScene(built.scene);
+    for (const built of this.scenes.values()) disposeScene(built.scene, false);
     this.labelLayer.replaceChildren();
     this.composer?.dispose();
     this.renderer.dispose();
@@ -256,16 +288,17 @@ export class OfficeEngine {
   }
 
   private readonly frame = (now: number) => {
+    this.raf = 0;
     const dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
     const built = this.active;
-    // Draw only while something moves; an idle office costs nothing.
+    // Draw only while something moves, and stop the loop once idle; an idle office costs nothing.
     if (built && (this.updateCamera(dt, built) || now < this.settleUntil)) {
-      built.hover?.(this.hovered, dt);
+      if (built.hover?.(this.hovered, dt)) this.shadowsDirty = true;
       this.placeLabels(built);
       this.render(built, dt);
+      this.raf = requestAnimationFrame(this.frame);
     }
-    this.raf = requestAnimationFrame(this.frame);
   };
 
   /** Moves the camera toward its target; true while it is still moving. */
@@ -336,7 +369,12 @@ export class OfficeEngine {
   }
 
   private wake(ms = 1200) {
-    this.settleUntil = Math.max(this.settleUntil, performance.now() + ms);
+    const now = performance.now();
+    this.settleUntil = Math.max(this.settleUntil, now + ms);
+    if (!this.raf && !this.disposed) {
+      this.last = now;
+      this.raf = requestAnimationFrame(this.frame);
+    }
   }
 
   private flightZoom() {
@@ -362,6 +400,10 @@ export class OfficeEngine {
   }
 
   private render(built: BuiltScene, dt: number) {
+    if (this.shadowsDirty) {
+      this.renderer.shadowMap.needsUpdate = true;
+      this.shadowsDirty = false;
+    }
     if (this.composer && this.renderPass && this.aoPass && this.tools.studio) {
       this.renderPass.scene = built.scene;
       this.aoPass.scene = built.scene;
@@ -446,14 +488,19 @@ function sceneKey(view: OfficeView) {
   return `f:${view.layout.floorId}:${view.layout.version}`;
 }
 
-function disposeScene(scene: THREE.Scene) {
+/** Frees a scene's GPU memory; `keepShared` leaves the cached materials other scenes still use. */
+function disposeScene(scene: THREE.Scene, keepShared: boolean) {
+  const keep = (resource: object) => keepShared && isShared(resource);
   scene.traverse((object) => {
+    if ('shadow' in object && object.shadow instanceof THREE.LightShadow) object.shadow.dispose();
+    if (object instanceof THREE.InstancedMesh) object.dispose();
     if (object instanceof THREE.Mesh || object instanceof THREE.LineSegments) {
       object.geometry.dispose();
       const materials = Array.isArray(object.material) ? object.material : [object.material];
       for (const material of materials as THREE.Material[]) {
+        if (keep(material)) continue;
         for (const value of Object.values(material))
-          if (value instanceof THREE.Texture) value.dispose();
+          if (value instanceof THREE.Texture && !keep(value)) value.dispose();
         material.dispose();
       }
     }

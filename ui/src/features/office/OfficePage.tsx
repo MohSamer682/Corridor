@@ -1,12 +1,13 @@
-import { lazy, Suspense, useMemo, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { Breadcrumb, CampusCard, FloorRail, Hint, Minimap, ViewTools, glass } from './OfficeHud';
 import type { Building, Campus, FloorSummary, OfficeControls, OfficeView, Tools } from './types';
 import { useCampus, useFloorLayouts } from './useOffice';
+import { loadOfficeScene } from './sceneChunk';
 import { hasWebGL } from './webgl';
 
 const OfficeScene = lazy(() =>
-  import('./OfficeScene').then((module) => ({ default: module.OfficeScene })),
+  loadOfficeScene().then((module) => ({ default: module.OfficeScene })),
 );
 
 type Target =
@@ -44,6 +45,9 @@ export function OfficePage() {
   const navigate = useNavigate();
   const campus = useCampus();
   const webgl = useMemo(() => hasWebGL(), []);
+  useEffect(() => {
+    if (webgl) void loadOfficeScene();
+  }, [webgl]);
   const [tools, setTools] = useState<Tools>({ cutaway: false, overview: false, studio: true });
   const [studioAvailable, setStudioAvailable] = useState(true);
   const [controls, setControls] = useState<OfficeControls | null>(null);

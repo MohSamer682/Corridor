@@ -41,8 +41,8 @@ export type BuiltScene = {
   /** Meshes that open something when clicked; `userData.target` holds the building or floor id. */
   pick: THREE.Object3D[];
   anchors: Anchor[];
-  /** Per-frame hover effects. */
-  hover?: (id: string | null, dt: number) => void;
+  /** Per-frame hover effects; returns true when something that casts a shadow moved. */
+  hover?: (id: string | null, dt: number) => boolean | void;
   setCutaway?: (on: boolean) => void;
   floorView: boolean;
 };
@@ -915,10 +915,14 @@ export function buildStack(floors: FloorModel[], environment: THREE.Texture | nu
       at: () => new THREE.Vector3(s.f.W + 1, s.group.position.y + 0.3, s.f.H / 2),
     })),
     hover: (id, dt) => {
+      let moved = false;
       for (const s of slabs) {
         const target = s.baseY + (s.id === id ? 0.9 : 0);
-        s.group.position.y += (target - s.group.position.y) * Math.min(1, dt * 8);
+        const step = (target - s.group.position.y) * Math.min(1, dt * 8);
+        if (Math.abs(step) > 1e-4) moved = true;
+        s.group.position.y += step;
       }
+      return moved;
     },
   };
 }
