@@ -3,12 +3,15 @@ package com.corridor.office.spaces.application;
 import com.corridor.office.common.domain.ConflictException;
 import com.corridor.office.common.domain.NotFoundException;
 import com.corridor.office.common.security.CurrentUser;
+import com.corridor.office.spaces.domain.Floor;
 import com.corridor.office.spaces.domain.Room;
 import com.corridor.office.spaces.domain.RoomKind;
 import com.corridor.office.spaces.events.OfficeAssigned;
 import com.corridor.office.spaces.infrastructure.FloorRepository;
 import com.corridor.office.spaces.infrastructure.RoomRepository;
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
@@ -47,6 +50,23 @@ public class OfficeAssignmentService {
         office.giveTo(ownerId);
         rooms.saveAndFlush(office);
         events.publishEvent(new OfficeAssigned(roomId, actor.organizationId(), actor.userId(), office.name(), ownerId));
+    }
+
+    /** One private office, where it is, and who has it (null when empty). */
+    public record OfficeSlot(UUID id, String name, String place, UUID ownerId) {}
+
+    /** Every private office in the company, for the office picker in the person sheet. */
+    @Transactional(readOnly = true)
+    @PreAuthorize("hasAnyRole('ADMIN', 'HR')")
+    public List<OfficeSlot> list(CurrentUser actor) {
+        var offices = rooms.findOffices(actor.organizationId());
+        var where = floors
+                .findAllById(offices.stream().map(Room::floorId).distinct().toList())
+                .stream()
+                .collect(Collectors.toMap(Floor::id, f -> f.building().name() + " · " + f.code()));
+        return offices.stream()
+                .map(room -> new OfficeSlot(room.id(), room.name(), where.get(room.floorId()), room.ownerId()))
+                .toList();
     }
 
     private Room office(CurrentUser actor, UUID roomId) {
