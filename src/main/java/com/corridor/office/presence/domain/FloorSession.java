@@ -6,8 +6,10 @@ import com.corridor.office.presence.domain.MovementIntent.Step;
 import com.corridor.office.presence.domain.MovementIntent.WalkTo;
 import com.corridor.office.spaces.TileGrid;
 import com.corridor.office.spaces.TileGrid.Tile;
+import java.util.AbstractSet;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +36,8 @@ public final class FloorSession {
     private final TileGrid grid;
     private final Map<UUID, Avatar> avatars = new LinkedHashMap<>();
     private final ConcurrentLinkedQueue<MovementIntent> intents = new ConcurrentLinkedQueue<>();
+    // Who holds each tile, kept in step with the avatars so a tick doesn't rebuild it per person.
+    private final Map<Tile, Avatar> holders = new HashMap<>();
 
     public FloorSession(TileGrid grid) {
         this.grid = grid;
@@ -92,6 +96,7 @@ public final class FloorSession {
             }
             case Leave leave
             when avatar != null -> {
+                avatar.held().forEach(holders::remove);
                 avatars.remove(leave.userId());
                 moved.remove(leave.userId());
                 left.add(leave.userId());
@@ -104,20 +109,25 @@ public final class FloorSession {
 
     // Plan around people standing in the way; if they block every route, plan through them and wait.
     private List<Tile> route(Avatar avatar, Tile target) {
-        var around = grid.path(avatar.plannedFrom(), target, held(avatar));
+        var around = grid.path(avatar.plannedFrom(), target, heldByOthers(avatar));
         return around.isEmpty() ? grid.path(avatar.plannedFrom(), target) : around;
     }
 
     private void enter(UUID userId, Map<UUID, AvatarState> moved) {
-        grid.nearestFree(grid.arrival(), held(null)).ifPresent(tile -> {
+        grid.nearestFree(grid.arrival(), heldByOthers(null)).ifPresent(tile -> {
             var entered = new Avatar(userId, tile);
             avatars.put(userId, entered);
+            holders.put(tile, entered);
             moved.put(userId, entered.state());
         });
     }
 
     private void advance(Avatar avatar, Map<UUID, AvatarState> moved, List<Settled> settled) {
+        var from = avatar.tile();
         var landed = avatar.advanceStep();
+        if (landed) {
+            holders.remove(from);
+        }
         var started = !avatar.stepping() && !avatar.path().isEmpty() && tryNextStep(avatar);
         if (landed || started) {
             moved.put(avatar.userId(), avatar.state());
@@ -132,10 +142,11 @@ public final class FloorSession {
     /** Starts the next step if its tile is free; otherwise waits, re-routes or gives up. */
     private boolean tryNextStep(Avatar avatar) {
         var into = avatar.path().peek();
-        var taken = held(avatar);
+        var taken = heldByOthers(avatar);
         if (!taken.contains(into)) {
             avatar.path().poll();
             avatar.startStep(into, STEP_TICKS);
+            holders.put(into, avatar);
             return true;
         }
         var waited = avatar.waited();
@@ -152,13 +163,28 @@ public final class FloorSession {
         return false;
     }
 
-    private Set<Tile> held(Avatar except) {
-        var taken = new HashSet<Tile>();
-        for (var other : avatars.values()) {
-            if (other != except) {
-                taken.addAll(other.held());
+    /** A live view of the tiles everyone but {@code me} holds. */
+    private Set<Tile> heldByOthers(Avatar me) {
+        return new AbstractSet<>() {
+            @Override
+            public boolean contains(Object tile) {
+                var holder = holders.get(tile);
+                return holder != null && holder != me;
             }
-        }
-        return taken;
+
+            @Override
+            public Iterator<Tile> iterator() {
+                return holders.entrySet().stream()
+                        .filter(entry -> entry.getValue() != me)
+                        .map(Map.Entry::getKey)
+                        .iterator();
+            }
+
+            @Override
+            public int size() {
+                return (int)
+                        holders.values().stream().filter(holder -> holder != me).count();
+            }
+        };
     }
 }
