@@ -5,8 +5,10 @@ import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { floorModel, type FloorModel } from '../floorModel';
+import { usePresenceStore } from '../presence/presenceStore';
 import type { OfficeView, Tools } from '../types';
 import { PITCH, clampZoom, targetScale, type CameraMode } from './camera';
+import { AvatarLayer } from './avatars';
 import { setMaxAnisotropy } from './core';
 import { R_CAM } from './environment';
 import { buildCampus, buildFloorScene, buildStack, type BuiltScene } from './scenes';
@@ -15,6 +17,8 @@ export type EngineCallbacks = {
   onOpenBuilding: (id: string) => void;
   onOpenFloor: (id: string) => void;
   onStudioUnavailable: () => void;
+  onWalk: (x: number, y: number) => void;
+  onStep: (dx: number, dy: number) => void;
 };
 
 type Label = { id: string; element: HTMLElement };
@@ -65,6 +69,10 @@ export class OfficeEngine {
   private readonly raycaster = new THREE.Raycaster();
   private readonly pointer = new THREE.Vector2();
   private readonly resize: ResizeObserver;
+  private readonly avatars: AvatarLayer;
+  private readonly avatarTags = document.createElement('div');
+  private readonly unsubscribe: () => void;
+  private following = true;
 
   private readonly canvas: HTMLCanvasElement;
   private readonly labelLayer: HTMLElement;
@@ -74,6 +82,8 @@ export class OfficeEngine {
     this.canvas = canvas;
     this.labelLayer = labelLayer;
     this.callbacks = callbacks;
+    this.avatars = new AvatarLayer(this.avatarTags);
+    this.unsubscribe = usePresenceStore.subscribe(() => this.wake(400));
     this.renderer = new THREE.WebGLRenderer({
       canvas,
       antialias: true,
@@ -100,6 +110,7 @@ export class OfficeEngine {
     canvas.addEventListener('pointerdown', this.onPointerDown);
     canvas.addEventListener('pointerup', this.onPointerUp);
     canvas.addEventListener('wheel', this.onWheel, { passive: false });
+    window.addEventListener('keydown', this.onKeyDown);
     this.raf = requestAnimationFrame(this.frame);
   }
 
@@ -118,6 +129,9 @@ export class OfficeEngine {
       this.zoom = 1;
       this.hovered = null;
       built.setCutaway?.(this.tools.cutaway);
+      this.following = true;
+      this.avatars.clear();
+      if (built.floorView) built.scene.add(this.avatars.group);
     }
     this.makeLabels(view, built);
     this.wake();
@@ -139,7 +153,14 @@ export class OfficeEngine {
     this.wake();
   }
 
+  /** Whose avatar is "You"; the camera follows it on a floor. */
+  setMe(userId: string | null) {
+    this.avatars.setMe(userId);
+    this.wake();
+  }
+
   lookAt(x: number, z: number) {
+    this.following = false;
     this.focus = new THREE.Vector3(x, 0, z);
     this.wake();
   }
@@ -152,6 +173,10 @@ export class OfficeEngine {
     this.canvas.removeEventListener('pointerdown', this.onPointerDown);
     this.canvas.removeEventListener('pointerup', this.onPointerUp);
     this.canvas.removeEventListener('wheel', this.onWheel);
+    window.removeEventListener('keydown', this.onKeyDown);
+    this.unsubscribe();
+    this.avatars.group.removeFromParent();
+    this.avatars.clear();
     for (const built of this.scenes.values()) disposeScene(built.scene);
     this.labelLayer.replaceChildren();
     this.composer?.dispose();
@@ -183,7 +208,7 @@ export class OfficeEngine {
   }
 
   private makeLabels(view: OfficeView, built: BuiltScene) {
-    this.labelLayer.replaceChildren();
+    this.labelLayer.replaceChildren(this.avatarTags);
     const card =
       'pointer-events-none absolute top-0 left-0 whitespace-nowrap will-change-transform';
     this.labels = built.anchors.map((anchor) => {
@@ -260,9 +285,12 @@ export class OfficeEngine {
     this.last = now;
     const built = this.active;
     // Draw only while something moves; an idle office costs nothing.
+    if (built?.floorView) this.follow(now);
     if (built && (this.updateCamera(dt, built) || now < this.settleUntil)) {
       built.hover?.(this.hovered, dt);
       this.placeLabels(built);
+      if (built.floorView && this.avatars.update(now, dt, this.camera, this.width, this.height))
+        this.wake(100);
       this.render(built, dt);
     }
     this.raf = requestAnimationFrame(this.frame);
@@ -333,6 +361,11 @@ export class OfficeEngine {
       done();
     }
     return moving;
+  }
+
+  private follow(now: number) {
+    const me = this.following && !this.tools.overview ? this.avatars.myPosition(now) : null;
+    if (me) this.focus = new THREE.Vector3(me.x + 0.5, 0, me.y + 0.5);
   }
 
   private wake(ms = 1200) {
@@ -412,8 +445,12 @@ export class OfficeEngine {
   private readonly onPointerUp = (event: PointerEvent) => {
     const down = this.downAt;
     this.downAt = null;
-    if (!down || !this.active || this.active.floorView || this.flight) return;
+    if (!down || !this.active || this.flight) return;
     if (Math.hypot(event.clientX - down[0], event.clientY - down[1]) > 8) return;
+    if (this.active.floorView) {
+      this.walkTo(event);
+      return;
+    }
     const id = this.pick(event);
     if (!id) return;
     const open = () =>
@@ -422,12 +459,56 @@ export class OfficeEngine {
     else this.flight = { start: performance.now(), then: open };
   };
 
+  private walkTo(event: PointerEvent) {
+    const box = this.canvas.getBoundingClientRect();
+    this.pointer.set(
+      ((event.clientX - box.left) / box.width) * 2 - 1,
+      -((event.clientY - box.top) / box.height) * 2 + 1,
+    );
+    this.raycaster.setFromCamera(this.pointer, this.camera);
+    const hit = this.raycaster.ray.intersectPlane(GROUND, new THREE.Vector3());
+    if (!hit) return;
+    this.following = true;
+    this.callbacks.onWalk(Math.floor(hit.x), Math.floor(hit.z));
+  }
+
+  private readonly onKeyDown = (event: KeyboardEvent) => {
+    const arrow = ARROWS[event.key];
+    if (!arrow || !this.active?.floorView || event.altKey || event.ctrlKey || event.metaKey) return;
+    if (
+      (event.target as HTMLElement | null)?.closest?.('input, textarea, select, [contenteditable]')
+    )
+      return;
+    event.preventDefault();
+    // Up means away from the camera, whichever way the view is turned.
+    const [forward, right] = arrow;
+    const yaw = this.yawTarget;
+    const dx = Math.round(-Math.sin(yaw) * forward + Math.cos(yaw) * right);
+    const dy = Math.round(-Math.cos(yaw) * forward - Math.sin(yaw) * right);
+    this.following = true;
+    this.callbacks.onStep(dx, dy);
+  };
+
   private readonly onWheel = (event: WheelEvent) => {
     event.preventDefault();
     this.zoom = clampZoom(this.zoom * Math.exp(-event.deltaY * 0.0015));
     this.wake();
   };
 }
+
+const GROUND = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+
+// [forward, right] for each key.
+const ARROWS: Record<string, [number, number]> = {
+  ArrowUp: [1, 0],
+  w: [1, 0],
+  ArrowDown: [-1, 0],
+  s: [-1, 0],
+  ArrowLeft: [0, -1],
+  a: [0, -1],
+  ArrowRight: [0, 1],
+  d: [0, 1],
+};
 
 function isSoftwareRenderer(renderer: THREE.WebGLRenderer) {
   const gl = renderer.getContext();

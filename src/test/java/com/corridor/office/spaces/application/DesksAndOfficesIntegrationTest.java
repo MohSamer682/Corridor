@@ -179,6 +179,24 @@ class DesksAndOfficesIntegrationTest {
     }
 
     @Test
+    @WithMockUser(roles = "HR")
+    void shouldListEveryOfficeWithWhereItIsAndWhoHasIt() {
+        var office = officeId();
+        offices.assign(hr, office, nour.userId());
+
+        var list = offices.list(hr);
+
+        assertThat(list).isNotEmpty();
+        assertThat(list)
+                .filteredOn(slot -> slot.id().equals(office))
+                .singleElement()
+                .satisfies(slot -> {
+                    assertThat(slot.ownerId()).isEqualTo(nour.userId());
+                    assertThat(slot.place()).contains("L1");
+                });
+    }
+
+    @Test
     @WithMockUser(roles = "MANAGER")
     void shouldNotLetManagersAssignOffices() {
         var manager = new CurrentUser(UUID.randomUUID(), organizationId, Role.MANAGER);

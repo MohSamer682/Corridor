@@ -5,10 +5,12 @@ import com.corridor.office.common.security.CurrentUser;
 import com.corridor.office.spaces.application.DeskQuery;
 import com.corridor.office.spaces.application.MyDesk;
 import com.corridor.office.spaces.application.OfficeAssignmentService;
+import com.corridor.office.spaces.application.OfficeAssignmentService.OfficeSlot;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -40,6 +42,14 @@ class DeskController {
     @ApiResponse(responseCode = "200", description = "Where Go to my desk takes you")
     MyDeskView mine(@AuthenticationPrincipal Jwt jwt) {
         return new MyDeskView(desks.mine(CurrentUser.from(jwt)).orElse(null));
+    }
+
+    @GetMapping("/api/v1/offices")
+    @Operation(summary = "Every private office in your company and who has it (HR and admins)")
+    @ApiResponse(responseCode = "200", description = "Offices, by building, floor and name")
+    @ApiResponse(responseCode = "403", description = "Not HR or an admin")
+    List<OfficeSlot> offices(@AuthenticationPrincipal Jwt jwt) {
+        return offices.list(CurrentUser.from(jwt));
     }
 
     @PutMapping("/api/v1/rooms/{roomId}/owner")

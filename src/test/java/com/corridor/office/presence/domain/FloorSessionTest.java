@@ -194,4 +194,38 @@ class FloorSessionTest {
             assertThat(new HashSet<>(held)).hasSameSizeAs(held);
         }
     }
+
+    @Test
+    void shouldTickTwoHundredPeopleWellInsideTheTickBudget() {
+        var open = "C" + ".".repeat(58) + "C";
+        var grid = TileGrid.parse(60, 40, "C".repeat(60) + open.repeat(38) + "C".repeat(60), new Tile(1, 1));
+        var crowd = new FloorSession(grid);
+        var random = new Random(11);
+        var people = new ArrayList<UUID>();
+        for (int i = 0; i < 200; i++) {
+            people.add(UUID.randomUUID());
+            crowd.submit(new Enter(people.getLast()));
+        }
+        var times = new long[600];
+        var mostMoved = 0;
+        for (int tick = 0; tick < times.length; tick++) {
+            // Everyone picks a new spot about every three seconds.
+            for (var person : people) {
+                if (random.nextInt(30) == 0) {
+                    crowd.submit(new WalkTo(person, new Tile(1 + random.nextInt(58), 1 + random.nextInt(38))));
+                }
+            }
+            var start = System.nanoTime();
+            var frame = crowd.tick();
+            times[tick] = System.nanoTime() - start;
+            mostMoved = Math.max(mostMoved, frame.moved().size());
+        }
+        java.util.Arrays.sort(times);
+        var p99 = times[times.length * 99 / 100] / 1_000_000.0;
+        System.out.printf(
+                "200 people: p99 tick %.2f ms, max %.2f ms, most moved in one frame %d%n",
+                p99, times[times.length - 1] / 1_000_000.0, mostMoved);
+        // The tick runs every 100 ms; under a third of that leaves room for sending frames on a slow CI box.
+        assertThat(p99).isLessThan(30.0);
+    }
 }

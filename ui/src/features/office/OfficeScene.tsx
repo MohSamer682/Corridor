@@ -10,13 +10,16 @@ export function OfficeScene({
   onOpenBuilding,
   onOpenFloor,
   onStudioUnavailable,
+  onWalk,
+  onStep,
+  meId,
 }: OfficeSceneProps) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const labels = useRef<HTMLDivElement>(null);
   const engine = useRef<OfficeEngine | null>(null);
-  const callbacks = useRef({ onOpenBuilding, onOpenFloor, onStudioUnavailable });
+  const callbacks = useRef({ onOpenBuilding, onOpenFloor, onStudioUnavailable, onWalk, onStep });
   useEffect(() => {
-    callbacks.current = { onOpenBuilding, onOpenFloor, onStudioUnavailable };
+    callbacks.current = { onOpenBuilding, onOpenFloor, onStudioUnavailable, onWalk, onStep };
   });
 
   useEffect(() => {
@@ -25,6 +28,8 @@ export function OfficeScene({
       onOpenBuilding: (id) => callbacks.current.onOpenBuilding(id),
       onOpenFloor: (id) => callbacks.current.onOpenFloor(id),
       onStudioUnavailable: () => callbacks.current.onStudioUnavailable(),
+      onWalk: (x, y) => callbacks.current.onWalk(x, y),
+      onStep: (dx, dy) => callbacks.current.onStep(dx, dy),
     });
     engine.current = created;
     onReady({
@@ -46,6 +51,10 @@ export function OfficeScene({
     engine.current?.setTools(tools);
   }, [tools]);
 
+  useEffect(() => {
+    engine.current?.setMe(meId);
+  }, [meId]);
+
   return (
     <>
       <canvas ref={canvas} className="block size-full cursor-grab" aria-label={describe(view)} />
@@ -59,5 +68,5 @@ function describe(view: OfficeSceneProps['view']) {
     return '3D view of the campus. Use the campus card or a building label to go inside.';
   if (view.mode === 'building')
     return `3D view of ${view.building.name}, its floors stacked. Pick a floor from the list.`;
-  return `3D view of ${view.building.name}, ${view.floor.code} · ${view.floor.name}.`;
+  return `3D view of ${view.building.name}, ${view.floor.code} · ${view.floor.name}. Click the floor or use the arrow keys to walk.`;
 }

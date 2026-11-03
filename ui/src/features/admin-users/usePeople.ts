@@ -43,13 +43,25 @@ export function useTeams() {
   });
 }
 
+export type OfficeSlot = { id: string; name: string; place: string; ownerId: string | null };
+
+export function useOffices(enabled: boolean) {
+  return useQuery({
+    queryKey: ['offices'],
+    queryFn: () => apiClient<OfficeSlot[]>('/api/v1/offices'),
+    enabled,
+  });
+}
+
 export function useAdminMutation<TVariables>(request: (variables: TVariables) => Promise<unknown>) {
   const queryClient = useQueryClient();
   return useMutation<unknown, ProblemError, TVariables>({
     mutationFn: request,
     onSuccess: () =>
       Promise.all(
-        ['users', 'user', 'teams'].map((key) => queryClient.invalidateQueries({ queryKey: [key] })),
+        ['users', 'user', 'teams', 'offices'].map((key) =>
+          queryClient.invalidateQueries({ queryKey: [key] }),
+        ),
       ),
   });
 }

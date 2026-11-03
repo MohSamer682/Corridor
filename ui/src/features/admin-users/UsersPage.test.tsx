@@ -104,6 +104,7 @@ it('asks before removing someone and removes them on confirm', async () => {
   stubApi((method, url) => {
     if (url.startsWith('/api/v1/teams')) return [200, page([team])];
     if (method === 'DELETE') return [200, { id: 'u2', status: 'REMOVED' }];
+    if (url === '/api/v1/offices') return [200, []];
     if (url === '/api/v1/users/u2') return [200, omarView];
     return [200, page([omar])];
   });
@@ -135,6 +136,7 @@ it('shows the reload message when someone else changed the user', async () => {
           detail: 'Someone else changed this user. Reload and try again.',
         },
       ];
+    if (url === '/api/v1/offices') return [200, []];
     if (url === '/api/v1/users/u2') return [200, omarView];
     return [200, page([omar])];
   });
@@ -154,6 +156,7 @@ it('shows the reload message when someone else changed the user', async () => {
 it('returns focus to the edit button when the sheet closes', async () => {
   stubApi((_method, url) => {
     if (url.startsWith('/api/v1/teams')) return [200, page([team])];
+    if (url === '/api/v1/offices') return [200, []];
     if (url === '/api/v1/users/u2') return [200, omarView];
     return [200, page([omar])];
   });
@@ -210,6 +213,7 @@ it('lets HR manage people but not add them or grant admin', async () => {
   useSessionStore.getState().signIn({ ...token, user: { ...token.user, role: 'HR' } });
   stubApi((_method, url) => {
     if (url.startsWith('/api/v1/teams')) return [200, page([team])];
+    if (url === '/api/v1/offices') return [200, []];
     if (url === '/api/v1/users/u2') return [200, omarView];
     return [200, page([omar])];
   });
@@ -223,4 +227,37 @@ it('lets HR manage people but not add them or grant admin', async () => {
   expect(
     within(sheet).queryByRole('button', { name: 'Remove from Corridor' }),
   ).not.toBeInTheDocument();
+});
+
+it('gives someone a free private office from their sheet', async () => {
+  const offices = [
+    { id: 'r1', name: 'CEO Office', place: 'Corridor HQ · L2', ownerId: 'someone-else' },
+    { id: 'r2', name: 'Office 2', place: 'Corridor HQ · L2', ownerId: null },
+  ];
+  stubApi((method, url) => {
+    if (url.startsWith('/api/v1/teams')) return [200, page([team])];
+    if (url === '/api/v1/offices') return [200, offices];
+    if (method === 'PUT') return [200, { id: 'r2', status: 'ASSIGNED' }];
+    if (url === '/api/v1/offices') return [200, []];
+    if (url === '/api/v1/users/u2') return [200, omarView];
+    return [200, page([omar])];
+  });
+  renderApp('/admin/users');
+
+  await user.click(await screen.findByRole('button', { name: 'Edit Omar Adel' }));
+  const sheet = await screen.findByRole('dialog', { name: 'Omar Adel' });
+  const select = await within(sheet).findByRole('combobox', { name: 'Private office' });
+  expect(
+    within(select)
+      .getAllByRole('option')
+      .map((o) => o.textContent),
+  ).toEqual(['No private office', 'Corridor HQ · L2 · Office 2']);
+  await user.selectOptions(select, 'r2');
+  await user.click(within(sheet).getByRole('button', { name: 'Save changes' }));
+
+  await waitFor(() => {
+    const put = fetchCalls().find((call) => call.init.method === 'PUT');
+    expect(put?.url).toBe('/api/v1/rooms/r2/owner');
+    expect(JSON.parse(String(put?.init.body))).toEqual({ userId: 'u2' });
+  });
 });

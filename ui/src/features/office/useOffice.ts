@@ -26,3 +26,30 @@ export function useFloorLayouts(floorIds: string[]) {
     }),
   });
 }
+
+export type MyDesk = {
+  floorId: string;
+  x: number;
+  y: number;
+  kind: 'DESK' | 'OFFICE';
+  roomName?: string;
+};
+
+export function useMyDesk() {
+  return useQuery({
+    queryKey: ['my-desk'],
+    queryFn: () => apiClient<{ desk: MyDesk | null }>('/api/v1/me/desk').then((r) => r.desk),
+  });
+}
+
+/** People on each floor right now; floor id → count. */
+export function usePresenceCounts() {
+  return useQuery({
+    queryKey: ['presence-counts'],
+    queryFn: () =>
+      apiClient<{ floors: Record<string, number> }>('/api/v1/presence/counts').then(
+        (r) => r.floors,
+      ),
+    refetchInterval: 15_000,
+  });
+}
