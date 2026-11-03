@@ -7,7 +7,14 @@ import { roleLabels, type Role } from '../../shared/roles';
 import { Alert } from '../../shared/ui/Alert';
 import { Sheet } from '../../shared/ui/Sheet';
 import { useSessionStore } from '../auth/sessionStore';
-import { ifMatch, useAdminMutation, usePerson, type TeamView, type UserView } from './usePeople';
+import {
+  ifMatch,
+  useAdminMutation,
+  useOffices,
+  usePerson,
+  type TeamView,
+  type UserView,
+} from './usePeople';
 
 const field =
   'h-11 w-full rounded-[10px] border border-field-line bg-field px-3.5 text-ink focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-signal focus-visible:outline-none aria-[invalid=true]:border-danger-ink';
@@ -71,7 +78,12 @@ function PersonForm({
   teams: TeamView[];
   onDone: () => void;
 }) {
-  const isAdmin = useSessionStore((state) => state.user?.role) === 'ADMIN';
+  const viewerRole = useSessionStore((state) => state.user?.role);
+  const isAdmin = viewerRole === 'ADMIN';
+  const offices = useOffices(Boolean(person) && (isAdmin || viewerRole === 'HR'));
+  const currentOffice = offices.data?.find((o) => person && o.ownerId === person.id)?.id ?? '';
+  const [office, setOffice] = useState<string | null>(null);
+  const chosenOffice = office ?? currentOffice;
   const {
     register,
     handleSubmit,
@@ -89,13 +101,19 @@ function PersonForm({
   });
   const save = useAdminMutation((values: PersonValues) => {
     const body = { ...values, jobTitle: values.jobTitle || null, teamId: values.teamId || null };
-    return person
-      ? apiClient(`/api/v1/users/${person.id}`, {
-          method: 'PATCH',
-          headers: ifMatch(person.version),
-          body: JSON.stringify(body),
-        })
-      : apiClient('/api/v1/users', { method: 'POST', body: JSON.stringify(body) });
+    if (!person) return apiClient('/api/v1/users', { method: 'POST', body: JSON.stringify(body) });
+    return apiClient(`/api/v1/users/${person.id}`, {
+      method: 'PATCH',
+      headers: ifMatch(person.version),
+      body: JSON.stringify(body),
+    }).then(() =>
+      chosenOffice === currentOffice
+        ? undefined
+        : apiClient(`/api/v1/rooms/${chosenOffice || currentOffice}/owner`, {
+            method: 'PUT',
+            body: JSON.stringify({ userId: chosenOffice ? person.id : null }),
+          }),
+    );
   });
 
   return (
@@ -163,6 +181,32 @@ function PersonForm({
             </select>
           </div>
         </div>
+        {offices.data && offices.data.length > 0 && (
+          <div>
+            <label className={label} htmlFor="office">
+              Private office
+            </label>
+            <select
+              id="office"
+              aria-describedby="office-hint"
+              className={field}
+              value={chosenOffice}
+              onChange={(event) => setOffice(event.target.value)}
+            >
+              <option value="">No private office</option>
+              {offices.data
+                .filter((o) => !o.ownerId || o.ownerId === person?.id)
+                .map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.place} · {o.name}
+                  </option>
+                ))}
+            </select>
+            <p id="office-hint" className="m-0 mt-1.5 text-[13px] text-muted">
+              Only free offices are listed. Desks on the open floor belong to whoever sits at them.
+            </p>
+          </div>
+        )}
         {!person && (
           <TextField
             id="password"
