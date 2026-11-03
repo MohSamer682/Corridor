@@ -1,9 +1,9 @@
-package com.corridor.office.spaces.domain;
+package com.corridor.office.spaces;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.corridor.office.spaces.domain.TileGrid.Tile;
+import com.corridor.office.spaces.TileGrid.Tile;
 import org.junit.jupiter.api.Test;
 
 class TileGridTest {
