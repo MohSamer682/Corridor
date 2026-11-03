@@ -1,0 +1,74 @@
+import { Client } from '@stomp/stompjs';
+import { useEffect, useMemo, useRef } from 'react';
+import { apiClient, refreshOnce } from '../../../shared/api/apiClient';
+import { useSessionStore } from '../../auth/sessionStore';
+import { usePresenceStore, type FrameMessage, type Occupant } from './presenceStore';
+
+export type PresenceControls = {
+  walk: (x: number, y: number) => void;
+  step: (dx: number, dy: number) => void;
+};
+
+const socketUrl = () => `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`;
+
+/**
+ * While a floor is open: keeps one STOMP connection, enters the floor, and feeds frames into the presence
+ * store. Reconnects on its own; each connect asks for a fresh access token first.
+ */
+export function usePresence(floorId: string | null): PresenceControls {
+  const client = useRef<Client | null>(null);
+
+  useEffect(() => {
+    if (!floorId) return undefined;
+    const store = usePresenceStore.getState();
+    store.reset();
+    const stomp = new Client({
+      brokerURL: socketUrl(),
+      reconnectDelay: 2000,
+      heartbeatIncoming: 10_000,
+      heartbeatOutgoing: 10_000,
+      beforeConnect: async () => {
+        await refreshOnce().catch(() => undefined);
+        stomp.connectHeaders = {
+          Authorization: `Bearer ${useSessionStore.getState().accessToken ?? ''}`,
+        };
+      },
+      onConnect: () => {
+        usePresenceStore.getState().setConnected(true);
+        stomp.subscribe(`/topic/floors/${floorId}/frames`, (message) => {
+          usePresenceStore.getState().applyFrame(JSON.parse(message.body) as FrameMessage);
+          if (usePresenceStore.getState().unnamed().length) void loadOccupants(floorId);
+        });
+        stomp.publish({ destination: `/app/floors/${floorId}/enter` });
+        void loadOccupants(floorId);
+      },
+      onWebSocketClose: () => usePresenceStore.getState().setConnected(false),
+    });
+    client.current = stomp;
+    stomp.activate();
+    return () => {
+      if (stomp.connected) stomp.publish({ destination: '/app/leave' });
+      void stomp.deactivate();
+      client.current = null;
+      usePresenceStore.getState().reset();
+    };
+  }, [floorId]);
+
+  return useMemo(() => {
+    const send = (destination: string, body: object) => {
+      if (client.current?.connected)
+        client.current.publish({ destination, body: JSON.stringify(body) });
+    };
+    return {
+      walk: (x, y) => send('/app/walk', { x, y }),
+      step: (dx, dy) => send('/app/step', { dx, dy }),
+    };
+  }, []);
+}
+
+async function loadOccupants(floorId: string) {
+  const occupants = await apiClient<Occupant[]>(`/api/v1/floors/${floorId}/occupants`).catch(
+    () => [],
+  );
+  usePresenceStore.getState().arrive(occupants);
+}

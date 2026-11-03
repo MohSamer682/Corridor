@@ -3,9 +3,12 @@ import userEvent from '@testing-library/user-event';
 import { useSessionStore } from '../auth/sessionStore';
 import { stubApi, tokenResponse } from '../../test/fetchStub';
 import { renderApp, resetSession } from '../../test/renderApp';
+import { usePresenceStore } from './presence/presenceStore';
 import { hasWebGL } from './webgl';
 
 vi.mock('./webgl', () => ({ hasWebGL: vi.fn(() => true) }));
+const walk = vi.fn();
+vi.mock('./presence/usePresence', () => ({ usePresence: () => ({ walk, step: vi.fn() }) }));
 vi.mock('./OfficeScene', () => ({
   OfficeScene: ({ view }: { view: { mode: string } }) => <div data-testid="scene">{view.mode}</div>,
 }));
@@ -55,12 +58,22 @@ function signInAs(role: 'ADMIN' | 'EMPLOYEE') {
   useSessionStore.getState().signIn({ ...token, user: { ...token.user, role } });
 }
 
+let desk: unknown = null;
+
 function serveCampus(body: unknown = campus, status = 200) {
-  stubApi((_method, url) => (url.includes('/layout') ? [200, layout] : [status, body]));
+  stubApi((_method, url) => {
+    if (url.includes('/layout')) return [200, layout];
+    if (url.includes('/presence/counts')) return [200, { floors: { l1: 4, g: 1 } }];
+    if (url.includes('/me/desk')) return [200, { desk }];
+    return [status, body];
+  });
 }
 
 beforeEach(() => {
   resetSession();
+  desk = null;
+  walk.mockReset();
+  usePresenceStore.getState().reset();
   signInAs('EMPLOYEE');
   vi.mocked(hasWebGL).mockReturnValue(true);
 });
@@ -82,7 +95,9 @@ it('shows the campus with its buildings', async () => {
   expect(await screen.findByTestId('scene')).toHaveTextContent('campus');
   expect(screen.getByRole('heading', { name: 'Your campus' })).toBeInTheDocument();
   expect(
-    screen.getByText('2 buildings · 3 floors. Click a building to look inside.'),
+    await screen.findByText(
+      '2 buildings · 3 floors · 5 people here now. Click a building to look inside.',
+    ),
   ).toBeInTheDocument();
 });
 
@@ -97,7 +112,11 @@ it('opens a building from the campus card and lists its floors from the top down
     within(rail)
       .getAllByRole('link')
       .map((link) => link.textContent),
-  ).toEqual(['L1Engineering', 'GLobby & Commons', '1FInnovation LabQA & design studio']);
+  ).toEqual([
+    'L1Engineering4 people',
+    'GLobby & Commons1 person',
+    '1FInnovation LabQA & design studio',
+  ]);
   expect(screen.getByTestId('scene')).toHaveTextContent('building');
 });
 
@@ -146,4 +165,47 @@ it('explains when WebGL is off', async () => {
     await screen.findByText('The 3D office needs WebGL, which this browser has turned off.'),
   ).toBeInTheDocument();
   expect(screen.queryByTestId('scene')).not.toBeInTheDocument();
+});
+
+it('walks you to your desk once you are on its floor', async () => {
+  desk = { floorId: 'l1', x: 2, y: 1, kind: 'DESK' };
+  serveCampus();
+  renderApp('/office');
+
+  await user.click(await screen.findByRole('button', { name: 'Go to my desk' }));
+
+  expect(await screen.findByTestId('scene')).toHaveTextContent('floor');
+  expect(walk).not.toHaveBeenCalled();
+  const me = useSessionStore.getState().user!.id!;
+  usePresenceStore
+    .getState()
+    .arrive([{ userId: me, displayName: 'Me', x: 1, y: 1, facing: 'S', moving: false }]);
+  await vi.waitFor(() => expect(walk).toHaveBeenCalledWith(2, 1));
+});
+
+it('explains how to get a desk when you have none', async () => {
+  serveCampus();
+  renderApp('/office');
+
+  await user.click(await screen.findByRole('button', { name: 'Go to my desk' }));
+
+  expect(
+    screen.getByText("You don't have a desk yet. Sit at a free desk to make it yours."),
+  ).toBeInTheDocument();
+});
+
+it('greets the first person on a floor and says when the connection drops', async () => {
+  serveCampus();
+  renderApp('/office/floors/l1');
+  await screen.findByTestId('scene');
+  const me = useSessionStore.getState().user!.id!;
+
+  usePresenceStore.getState().setConnected(true);
+  usePresenceStore
+    .getState()
+    .arrive([{ userId: me, displayName: 'Me', x: 1, y: 1, facing: 'S', moving: false }]);
+  expect(await screen.findByText("You're the first one on this floor.")).toBeInTheDocument();
+
+  usePresenceStore.getState().setConnected(false);
+  expect(await screen.findByText('Reconnecting…')).toBeInTheDocument();
 });

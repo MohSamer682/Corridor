@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { useSessionStore } from '../auth/sessionStore';
 import { floorModel, paintPlan } from './floorModel';
@@ -185,7 +185,23 @@ export function ViewTools({
   );
 }
 
-export function CampusCard({ campus, onEnter }: { campus: Campus; onEnter: (id: string) => void }) {
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+const people = (n: number) => (n === 1 ? '1 person' : `${n} people`);
+
+export function CampusCard({
+  campus,
+  counts,
+  hasDesk,
+  onEnter,
+  onMyDesk,
+}: {
+  campus: Campus;
+  counts: Record<string, number>;
+  hasDesk: boolean | undefined;
+  onEnter: (id: string) => void;
+  onMyDesk: () => void;
+}) {
+  const [noDesk, setNoDesk] = useState(false);
   const company = useSessionStore((state) => state.user?.organizationName);
   const buildings = campus.buildings.length;
   const floors = campus.buildings.reduce((sum, b) => sum + b.floors.length, 0);
@@ -202,17 +218,33 @@ export function CampusCard({ campus, onEnter }: { campus: Campus; onEnter: (id: 
         Your campus
       </h2>
       <p className="m-0 text-[13px] text-[#5B6478]">
-        {buildings} building{buildings === 1 ? '' : 's'} · {floors} floor{floors === 1 ? '' : 's'}.
-        Click a building to look inside.
+        {plural(buildings, 'building')} · {plural(floors, 'floor')} ·{' '}
+        {people(Object.values(counts).reduce((sum, n) => sum + n, 0))} here now. Click a building to
+        look inside.
       </p>
-      {main && (
+      <div className="flex flex-wrap gap-2">
         <button
           type="button"
-          onClick={() => onEnter(main.id)}
-          className="h-9 cursor-pointer rounded-[9px] border-0 bg-[#23395D] px-3 text-[13px] font-semibold text-white"
+          onClick={() => (hasDesk === false ? setNoDesk(true) : onMyDesk())}
+          disabled={hasDesk === undefined}
+          className="h-9 cursor-pointer rounded-[9px] border-0 bg-[#23395D] px-3 text-[13px] font-semibold text-white disabled:cursor-default disabled:opacity-60"
         >
-          Enter {main.name}
+          Go to my desk
         </button>
+        {main && (
+          <button
+            type="button"
+            onClick={() => onEnter(main.id)}
+            className="h-9 cursor-pointer rounded-[9px] border border-[#141B2D] bg-white px-3 text-[13px] font-semibold text-[#141B2D]"
+          >
+            Enter {main.name}
+          </button>
+        )}
+      </div>
+      {noDesk && (
+        <p role="status" className="m-0 text-[12.5px] text-[#8A6830]">
+          You don't have a desk yet. Sit at a free desk to make it yours.
+        </p>
       )}
     </section>
   );
@@ -222,10 +254,12 @@ export function FloorRail({
   campus,
   building,
   currentFloorId,
+  counts,
 }: {
   campus: Campus;
   building: Building;
   currentFloorId?: string;
+  counts: Record<string, number>;
 }) {
   const row =
     'flex items-center gap-2.5 rounded-lg p-1.5 text-left text-[#141B2D] no-underline hover:bg-[#EEF1F5] aria-[current=page]:bg-[#23395D] aria-[current=page]:text-white';
@@ -248,7 +282,13 @@ export function FloorRail({
           aria-current={floor.id === currentFloorId ? 'page' : undefined}
         >
           <span className={level}>{floor.code}</span>
-          <b className="text-[12.5px] font-semibold">{floor.name}</b>
+          <span>
+            <b className="block text-[12.5px] font-semibold">{floor.name}</b>
+            <small className="text-[11px] opacity-75">
+              {people(counts[floor.id] ?? 0)}
+              {floor.id === currentFloorId ? ' · you' : ''}
+            </small>
+          </span>
         </Link>
       ))}
       {others.length > 0 && (
@@ -305,6 +345,21 @@ export function Minimap({
         }}
       />
     </div>
+  );
+}
+
+export function Reconnecting() {
+  return (
+    <p
+      role="status"
+      className="absolute top-[58px] left-1/2 m-0 flex -translate-x-1/2 items-center gap-2 rounded-full border border-[#E2C891] bg-[#FBF1DD] px-3.5 py-2 text-[13px] font-semibold text-[#6B4E1E] shadow-[0_6px_18px_rgba(20,27,45,.14)]"
+    >
+      <span
+        aria-hidden="true"
+        className="size-3 animate-spin rounded-full border-2 border-current border-t-transparent motion-reduce:animate-none"
+      />
+      Reconnecting…
+    </p>
   );
 }
 

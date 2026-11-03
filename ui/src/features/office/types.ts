@@ -68,4 +68,8 @@ export type OfficeSceneProps = {
   onOpenBuilding: (buildingId: string) => void;
   onOpenFloor: (floorId: string) => void;
   onStudioUnavailable: () => void;
+  /** On a floor: walk to a tile, or one step with the arrow keys. */
+  onWalk: (x: number, y: number) => void;
+  onStep: (dx: number, dy: number) => void;
+  meId: string | null;
 };

@@ -1,8 +1,20 @@
-import { lazy, Suspense, useMemo, useState, type ReactNode } from 'react';
-import { useNavigate, useParams } from 'react-router';
-import { Breadcrumb, CampusCard, FloorRail, Hint, Minimap, ViewTools, glass } from './OfficeHud';
+import { lazy, Suspense, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router';
+import { useSessionStore } from '../auth/sessionStore';
+import {
+  Breadcrumb,
+  CampusCard,
+  FloorRail,
+  Hint,
+  Minimap,
+  Reconnecting,
+  ViewTools,
+  glass,
+} from './OfficeHud';
+import { usePresenceStore } from './presence/presenceStore';
+import { usePresence } from './presence/usePresence';
 import type { Building, Campus, FloorSummary, OfficeControls, OfficeView, Tools } from './types';
-import { useCampus, useFloorLayouts } from './useOffice';
+import { useCampus, useFloorLayouts, useMyDesk, usePresenceCounts } from './useOffice';
 import { hasWebGL } from './webgl';
 
 const OfficeScene = lazy(() =>
@@ -49,6 +61,24 @@ export function OfficePage() {
   const [controls, setControls] = useState<OfficeControls | null>(null);
   const target = campus.data ? locate(campus.data, buildingId, floorId) : null;
   const layouts = useFloorLayouts(floorIdsFor(campus.data, target));
+  const meId = useSessionStore((state) => state.user?.id ?? null);
+  const counts = usePresenceCounts().data ?? {};
+  const desk = useMyDesk();
+  const presence = usePresence(target?.mode === 'floor' ? target.floor.id : null);
+  const connected = usePresenceStore((state) => state.connected);
+  const everConnected = usePresenceStore((state) => state.version > 0);
+  const alone = usePresenceStore(
+    (state) => state.version > 0 && Object.keys(state.people).length === 1,
+  );
+  const amHere = usePresenceStore((state) => (meId ? Boolean(state.people[meId]) : false));
+  // "Go to my desk" opens the floor, then walks there once you have arrived.
+  const location = useLocation();
+  const walkTo = (location.state as { walkTo?: { x: number; y: number } } | null)?.walkTo;
+  useEffect(() => {
+    if (!walkTo || !amHere) return;
+    presence.walk(walkTo.x, walkTo.y);
+    navigate(location.pathname, { replace: true, state: null });
+  }, [walkTo, amHere, presence, navigate, location.pathname]);
 
   const view = useMemo<OfficeView | null>(() => {
     if (!campus.data || !target || layouts.isPending || layouts.isError) return null;
@@ -74,6 +104,12 @@ export function OfficePage() {
 
   const openBuilding = (id: string) => navigate(`/office/buildings/${id}`);
   const openFloor = (id: string) => navigate(`/office/floors/${id}`);
+  const goToMyDesk = () => {
+    if (desk.data)
+      navigate(`/office/floors/${desk.data.floorId}`, {
+        state: { walkTo: { x: desk.data.x, y: desk.data.y } },
+      });
+  };
   const retry = () => (campus.isError ? campus.refetch() : layouts.refetch());
 
   let content: ReactNode;
@@ -103,6 +139,9 @@ export function OfficePage() {
             onReady={setControls}
             onOpenBuilding={openBuilding}
             onOpenFloor={openFloor}
+            onWalk={presence.walk}
+            onStep={presence.step}
+            meId={meId}
             onStudioUnavailable={() => {
               setStudioAvailable(false);
               setTools((current) => ({ ...current, studio: false }));
@@ -122,16 +161,29 @@ export function OfficePage() {
           controls={controls}
           onChange={setTools}
         />
-        {target.mode === 'campus' && <CampusCard campus={campus.data} onEnter={openBuilding} />}
+        {target.mode === 'campus' && (
+          <CampusCard
+            campus={campus.data}
+            counts={counts}
+            hasDesk={desk.isPending ? undefined : Boolean(desk.data)}
+            onEnter={openBuilding}
+            onMyDesk={goToMyDesk}
+          />
+        )}
         {target.mode !== 'campus' && (
           <FloorRail
             campus={campus.data}
             building={target.building}
             currentFloorId={target.mode === 'floor' ? target.floor.id : undefined}
+            counts={counts}
           />
         )}
         {view.mode === 'floor' && (
           <Minimap layout={view.layout} level={view.floor.level} controls={controls} />
+        )}
+        {target.mode === 'floor' && everConnected && !connected && <Reconnecting />}
+        {target.mode === 'floor' && connected && alone && (
+          <Hint>You're the first one on this floor.</Hint>
         )}
         {target.mode !== 'floor' && (
           <Hint>
