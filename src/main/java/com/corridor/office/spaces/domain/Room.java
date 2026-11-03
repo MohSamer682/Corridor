@@ -84,4 +84,9 @@ public class Room extends AuditedEntity {
     public UUID ownerId() {
         return ownerId;
     }
+
+    /** Gives a private office to someone, or empties it with null. */
+    public void giveTo(UUID userId) {
+        ownerId = userId;
+    }
 }

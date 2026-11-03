@@ -62,4 +62,12 @@ public class Seat extends AuditedEntity {
     public UUID assignedUserId() {
         return assignedUserId;
     }
+
+    public void assignTo(UUID userId) {
+        assignedUserId = userId;
+    }
+
+    public void release() {
+        assignedUserId = null;
+    }
 }

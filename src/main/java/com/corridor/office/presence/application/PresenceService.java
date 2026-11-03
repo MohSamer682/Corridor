@@ -135,6 +135,7 @@ public class PresenceService {
             Frame frame = floor.session.tick();
             if (!frame.isEmpty()) {
                 floor.snapshot = floor.session.everyone();
+                frame.settled().forEach(s -> spaces.sat(floor.organizationId, floorId, s.userId(), s.tile()));
                 messages.convertAndSend("/topic/floors/" + floorId + "/frames", FrameMessage.of(frame));
             }
             // shortcut: an enter that races this removal is lost and the client re-enters on reconnect; fine on one
