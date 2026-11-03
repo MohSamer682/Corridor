@@ -2,6 +2,7 @@ package com.corridor.office.presence.api;
 
 import com.corridor.office.common.domain.DomainException;
 import com.corridor.office.common.security.CurrentUser;
+import com.corridor.office.identity.UserDirectory;
 import com.corridor.office.presence.application.PresenceService;
 import com.corridor.office.presence.domain.AvatarState;
 import com.corridor.office.spaces.TileGrid.Tile;
@@ -41,11 +42,15 @@ class PresenceController {
 
     record CountsView(Map<UUID, Integer> floors) {}
 
+    record OccupantView(UUID userId, String displayName, int x, int y, char facing, boolean moving) {}
+
     private final PresenceService presence;
+    private final UserDirectory directory;
     private final MessageSource copy;
 
-    PresenceController(PresenceService presence, MessageSource copy) {
+    PresenceController(PresenceService presence, UserDirectory directory, MessageSource copy) {
         this.presence = presence;
+        this.directory = directory;
         this.copy = copy;
     }
 
@@ -84,8 +89,20 @@ class PresenceController {
     @Operation(summary = "Who is on a floor right now, and where")
     @ApiResponse(responseCode = "200", description = "Everyone on the floor")
     @ApiResponse(responseCode = "404", description = "No such floor in your company")
-    List<AvatarState> occupants(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID floorId) {
-        return presence.occupants(CurrentUser.from(jwt), floorId);
+    List<OccupantView> occupants(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID floorId) {
+        var here = presence.occupants(CurrentUser.from(jwt), floorId);
+        var people = directory.findAll(here.stream().map(AvatarState::userId).toList());
+        return here.stream()
+                .map(state -> new OccupantView(
+                        state.userId(),
+                        people.containsKey(state.userId())
+                                ? people.get(state.userId()).displayName()
+                                : "",
+                        state.x(),
+                        state.y(),
+                        state.facing(),
+                        state.moving()))
+                .toList();
     }
 
     @GetMapping("/api/v1/presence/counts")
