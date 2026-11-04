@@ -4,13 +4,14 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { floorModel, type FloorModel } from '../floorModel';
-import { usePresenceStore } from '../presence/presenceStore';
+import { floorModel, groundOf, type FloorModel } from '../floorModel';
+import { positionAt, usePresenceStore } from '../presence/presenceStore';
 import { useConversationStore } from '../../talk/conversationStore';
 import type { OfficeView, Tools } from '../types';
 import { PITCH, clampZoom, targetScale, type CameraMode } from './camera';
 import { AvatarLayer } from './avatars';
 import { setMaxAnisotropy } from './core';
+import { Walker, type Pose } from './walker';
 import { R_CAM } from './environment';
 import { buildCampus, buildFloorScene, buildStack, type BuiltScene } from './scenes';
 
@@ -18,8 +19,8 @@ export type EngineCallbacks = {
   onOpenBuilding: (id: string) => void;
   onOpenFloor: (id: string) => void;
   onStudioUnavailable: () => void;
-  onWalk: (x: number, y: number) => void;
-  onStep: (dx: number, dy: number) => void;
+  /** Where your browser walked you, at most ten times a second and once when you stop. */
+  onMove: (pose: Pose) => void;
 };
 
 type Label = { id: string; element: HTMLElement };
@@ -74,6 +75,11 @@ export class OfficeEngine {
   private readonly avatarTags = document.createElement('div');
   private readonly unsubscribe: () => void;
   private following = true;
+  private walker: Walker | null = null;
+  private walkerFloor: string | null = null;
+  private meId: string | null = null;
+  private correctionSeq = 0;
+  private sent = { at: 0, moving: false, x: Number.NaN, y: Number.NaN };
 
   private readonly canvas: HTMLCanvasElement;
   private readonly labelLayer: HTMLElement;
@@ -84,7 +90,14 @@ export class OfficeEngine {
     this.labelLayer = labelLayer;
     this.callbacks = callbacks;
     this.avatars = new AvatarLayer(this.avatarTags);
-    const stopPresence = usePresenceStore.subscribe(() => this.wake(400));
+    const stopPresence = usePresenceStore.subscribe((state) => {
+      // The server refused a position: go back to where it has you.
+      if (state.correction && state.correction.seq !== this.correctionSeq) {
+        this.correctionSeq = state.correction.seq;
+        this.walker?.place(state.correction.x, state.correction.y);
+      }
+      this.wake(400);
+    });
     const stopTalk = useConversationStore.subscribe(() => this.wake(400));
     this.unsubscribe = () => {
       stopPresence();
@@ -117,6 +130,8 @@ export class OfficeEngine {
     canvas.addEventListener('pointerup', this.onPointerUp);
     canvas.addEventListener('wheel', this.onWheel, { passive: false });
     window.addEventListener('keydown', this.onKeyDown);
+    window.addEventListener('keyup', this.onKeyUp);
+    window.addEventListener('blur', this.onBlur);
     this.raf = requestAnimationFrame(this.frame);
   }
 
@@ -138,6 +153,16 @@ export class OfficeEngine {
       this.following = true;
       this.avatars.clear();
       if (built.floorView) built.scene.add(this.avatars.group);
+    }
+    if (view.mode === 'floor' && this.walkerFloor !== view.floor.id) {
+      const ground = groundOf(floorModel(view.layout, view.floor.level));
+      this.walker = new Walker(ground);
+      this.walkerFloor = view.floor.id;
+      this.avatars.setSeats(ground.seatAt);
+      this.avatars.setMePose(null);
+    } else if (view.mode !== 'floor') {
+      this.walker = null;
+      this.walkerFloor = null;
     }
     this.makeLabels(view, built);
     this.wake();
@@ -161,8 +186,17 @@ export class OfficeEngine {
 
   /** Whose avatar is "You"; the camera follows it on a floor. */
   setMe(userId: string | null) {
+    this.meId = userId;
     this.avatars.setMe(userId);
     this.wake();
+  }
+
+  /** Walks you to a point on this floor, around walls and people. */
+  walkTo(x: number, y: number) {
+    if (this.walker?.walkTo(x, y)) {
+      this.following = true;
+      this.wake();
+    }
   }
 
   lookAt(x: number, z: number) {
@@ -180,6 +214,8 @@ export class OfficeEngine {
     this.canvas.removeEventListener('pointerup', this.onPointerUp);
     this.canvas.removeEventListener('wheel', this.onWheel);
     window.removeEventListener('keydown', this.onKeyDown);
+    window.removeEventListener('keyup', this.onKeyUp);
+    window.removeEventListener('blur', this.onBlur);
     this.unsubscribe();
     this.avatars.group.removeFromParent();
     this.avatars.clear();
@@ -291,7 +327,8 @@ export class OfficeEngine {
     this.last = now;
     const built = this.active;
     // Draw only while something moves; an idle office costs nothing.
-    if (built?.floorView) this.follow(now);
+    if (built?.floorView) this.walk(now, dt);
+    if (built?.floorView) this.follow();
     if (built && (this.updateCamera(dt, built) || now < this.settleUntil)) {
       built.hover?.(this.hovered, dt);
       this.placeLabels(built);
@@ -369,9 +406,32 @@ export class OfficeEngine {
     return moving;
   }
 
-  private follow(now: number) {
-    const me = this.following && !this.tools.overview ? this.avatars.myPosition(now) : null;
-    if (me) this.focus = new THREE.Vector3(me.x + 0.5, 0, me.y + 0.5);
+  // Moves you for this frame and tells the server where you are now and then.
+  private walk(now: number, dt: number) {
+    const walker = this.walker;
+    if (!walker || !this.meId) return;
+    const people = usePresenceStore.getState().people;
+    if (!walker.placed) {
+      const mine = people[this.meId];
+      if (!mine) return;
+      walker.place(mine.to.x, mine.to.y);
+    }
+    const others = Object.values(people)
+      .filter((p) => p.id !== this.meId)
+      .map((p) => positionAt(p, now));
+    if (walker.update(dt, this.yaw, others)) this.wake(150);
+    const pose = walker.pose();
+    this.avatars.setMePose(pose);
+    const changed = pose.x !== this.sent.x || pose.y !== this.sent.y;
+    if (pose.moving !== this.sent.moving || (changed && now - this.sent.at >= 100)) {
+      this.sent = { at: now, moving: pose.moving, x: pose.x, y: pose.y };
+      this.callbacks.onMove(pose);
+    }
+  }
+
+  private follow() {
+    const me = this.following && !this.tools.overview && this.walker?.placed ? this.walker : null;
+    if (me) this.focus = new THREE.Vector3(me.x, 0, me.y);
   }
 
   private wake(ms = 1200) {
@@ -454,7 +514,7 @@ export class OfficeEngine {
     if (!down || !this.active || this.flight) return;
     if (Math.hypot(event.clientX - down[0], event.clientY - down[1]) > 8) return;
     if (this.active.floorView) {
-      this.walkTo(event);
+      this.walkToClick(event);
       return;
     }
     const id = this.pick(event);
@@ -465,7 +525,7 @@ export class OfficeEngine {
     else this.flight = { start: performance.now(), then: open };
   };
 
-  private walkTo(event: PointerEvent) {
+  private walkToClick(event: PointerEvent) {
     const box = this.canvas.getBoundingClientRect();
     this.pointer.set(
       ((event.clientX - box.left) / box.width) * 2 - 1,
@@ -474,26 +534,27 @@ export class OfficeEngine {
     this.raycaster.setFromCamera(this.pointer, this.camera);
     const hit = this.raycaster.ray.intersectPlane(GROUND, new THREE.Vector3());
     if (!hit) return;
-    this.following = true;
-    this.callbacks.onWalk(Math.floor(hit.x), Math.floor(hit.z));
+    this.walkTo(hit.x, hit.z);
   }
 
   private readonly onKeyDown = (event: KeyboardEvent) => {
-    const arrow = ARROWS[event.key];
-    if (!arrow || !this.active?.floorView || event.altKey || event.ctrlKey || event.metaKey) return;
-    if (
-      (event.target as HTMLElement | null)?.closest?.('input, textarea, select, [contenteditable]')
-    )
-      return;
+    const key = KEYS[event.key];
+    if (!key || !this.active?.floorView || !this.walker) return;
+    if (event.altKey || event.ctrlKey || event.metaKey) return;
+    const target = event.target as HTMLElement | null;
+    if (target?.closest?.('input, textarea, select, [contenteditable]')) return;
     event.preventDefault();
-    // Up means away from the camera, whichever way the view is turned.
-    const [forward, right] = arrow;
-    const yaw = this.yawTarget;
-    const dx = Math.round(-Math.sin(yaw) * forward + Math.cos(yaw) * right);
-    const dy = Math.round(-Math.cos(yaw) * forward - Math.sin(yaw) * right);
     this.following = true;
-    this.callbacks.onStep(dx, dy);
+    this.walker.press(key, true);
+    this.wake();
   };
+
+  private readonly onKeyUp = (event: KeyboardEvent) => {
+    const key = KEYS[event.key];
+    if (key) this.walker?.press(key, false);
+  };
+
+  private readonly onBlur = () => this.walker?.releaseAll();
 
   private readonly onWheel = (event: WheelEvent) => {
     event.preventDefault();
@@ -504,16 +565,20 @@ export class OfficeEngine {
 
 const GROUND = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 
-// [forward, right] for each key.
-const ARROWS: Record<string, [number, number]> = {
-  ArrowUp: [1, 0],
-  w: [1, 0],
-  ArrowDown: [-1, 0],
-  s: [-1, 0],
-  ArrowLeft: [0, -1],
-  a: [0, -1],
-  ArrowRight: [0, 1],
-  d: [0, 1],
+// Arrow keys and WASD; which way they go on the floor depends on the camera (Walker.glide).
+const KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
+  ArrowUp: 'up',
+  w: 'up',
+  W: 'up',
+  ArrowDown: 'down',
+  s: 'down',
+  S: 'down',
+  ArrowLeft: 'left',
+  a: 'left',
+  A: 'left',
+  ArrowRight: 'right',
+  d: 'right',
+  D: 'right',
 };
 
 function isSoftwareRenderer(renderer: THREE.WebGLRenderer) {

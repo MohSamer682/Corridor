@@ -26,13 +26,13 @@ test('two people on a floor see each other and walk around', async ({ browser })
   await slow(nour.getByText('You', { exact: true })).toBeVisible();
 
   const omar = await onEngineering(browser, 'omar@corridor.local');
-  await slow(omar.getByText('Nour', { exact: true })).toBeVisible();
-  await slow(nour.getByText('Omar', { exact: true })).toBeVisible();
+  await slow(omar.getByText('Nour', { exact: true }).first()).toBeVisible();
+  await slow(nour.getByText('Omar', { exact: true }).first()).toBeVisible();
   await slow(nour.getByText("You're the first one on this floor.")).toBeHidden();
 
   // Walking with the keyboard keeps both avatars on the floor; leaving takes Omar off Nour's view.
   await nour.keyboard.press('ArrowUp');
   await omar.close();
-  await slow(nour.getByText('Omar', { exact: true })).toBeHidden();
+  await slow(nour.getByText('Omar', { exact: true })).toHaveCount(0);
   await slow(nour.getByText('You', { exact: true })).toBeVisible();
 });

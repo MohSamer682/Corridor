@@ -59,6 +59,8 @@ export type OfficeControls = {
   rotate: (direction: 1 | -1) => void;
   zoomBy: (factor: number) => void;
   lookAt: (x: number, z: number) => void;
+  /** Walks you to a point on the floor you are on (Go to my desk). */
+  walkTo: (x: number, y: number) => void;
 };
 
 export type OfficeSceneProps = {
@@ -68,8 +70,7 @@ export type OfficeSceneProps = {
   onOpenBuilding: (buildingId: string) => void;
   onOpenFloor: (floorId: string) => void;
   onStudioUnavailable: () => void;
-  /** On a floor: walk to a tile, or one step with the arrow keys. */
-  onWalk: (x: number, y: number) => void;
-  onStep: (dx: number, dy: number) => void;
+  /** On a floor: where your browser has walked you, to send to the server. */
+  onMove: (pose: { x: number; y: number; facing: number; moving: boolean }) => void;
   meId: string | null;
 };

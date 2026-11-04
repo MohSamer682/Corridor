@@ -89,7 +89,12 @@ export class Walker {
 
   pose(): Pose {
     const seat = this.seat();
-    return { x: this.x, y: this.y, facing: seat ? SEAT_FACING[seat] : this.facing, moving: this.moving };
+    return {
+      x: this.x,
+      y: this.y,
+      facing: seat ? SEAT_FACING[seat] : this.facing,
+      moving: this.moving,
+    };
   }
 
   /** Moves for one frame; `yaw` is the camera's, `others` everyone else on the floor. True while active. */

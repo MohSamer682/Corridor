@@ -963,11 +963,12 @@ export interface components {
       /** Format: uuid */
       userId?: string;
       displayName?: string;
-      /** Format: int32 */
+      /** Format: double */
       x?: number;
-      /** Format: int32 */
+      /** Format: double */
       y?: number;
-      facing?: string;
+      /** Format: double */
+      facing?: number;
       moving?: boolean;
     };
     CursorResponseMessageView: {

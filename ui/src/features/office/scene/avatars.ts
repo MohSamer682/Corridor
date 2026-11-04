@@ -1,7 +1,8 @@
 import * as THREE from 'three';
-import { positionAt, STEP_MS, usePresenceStore, type Person } from '../presence/presenceStore';
+import { FRAME_MS, positionAt, usePresenceStore, type Person } from '../presence/presenceStore';
 import { useConversationStore } from '../../talk/conversationStore';
-import { FACE, M, RB } from './core';
+import { M, RB } from './core';
+import { SEAT_FACING, type Pose, type SeatFace } from './walker';
 
 /* People on the floor, built like the prototype's avatars; looks come from a hash of the user id. */
 
@@ -21,7 +22,6 @@ const SHIRTS = [
 ];
 const SKIN = ['#C8946A', '#E0AE88', '#A8744C', '#D6A07A', '#B98358', '#8E5E3C'];
 const HAIR = ['#2A1B12', '#1A1210', '#4A2C1A', '#6B3B22', '#141010', '#3A2A1E'];
-const FACING: Record<string, string> = { N: 'up', S: 'down', E: 'right', W: 'left' };
 
 function hash(id: string) {
   let h = 0;
@@ -131,6 +131,8 @@ export class AvatarLayer {
   private readonly bodies = new Map<string, Body>();
   private readonly labels: HTMLElement;
   private me: string | null = null;
+  private mePose: Pose | null = null;
+  private seatAt: (x: number, y: number) => SeatFace | undefined = () => undefined;
 
   constructor(labels: HTMLElement) {
     this.labels = labels;
@@ -140,10 +142,13 @@ export class AvatarLayer {
     this.me = userId;
   }
 
-  /** Where the signed-in person is, for the camera to follow. */
-  myPosition(now: number) {
-    const mine = this.me ? usePresenceStore.getState().people[this.me] : undefined;
-    return mine ? positionAt(mine, now) : null;
+  /** Your avatar is drawn where your browser walked it, not where the last frame had it. */
+  setMePose(pose: Pose | null) {
+    this.mePose = pose;
+  }
+
+  setSeats(seatAt: (x: number, y: number) => SeatFace | undefined) {
+    this.seatAt = seatAt;
   }
 
   /** Moves everyone; true while someone is still gliding, so the view keeps drawing. */
@@ -166,21 +171,30 @@ export class AvatarLayer {
         this.bodies.set(person.id, body);
         this.group.add(body.group);
       }
-      const at = positionAt(person, now);
-      const gliding = now - person.since < STEP_MS + 50;
-      moving ||= gliding;
+      const mine = person.id === this.me ? this.mePose : null;
+      const at = mine ?? positionAt(person, now);
+      const gliding = mine ? mine.moving : person.moving || now - person.since < FRAME_MS + 40;
+      moving ||= gliding || now - person.since < FRAME_MS + 40;
+      const seat = gliding ? undefined : this.seatAt(Math.floor(at.x), Math.floor(at.y));
       body.walk = gliding ? body.walk + dt : 0;
       const swing = gliding ? Math.sin(body.walk * 12) * 0.6 : 0;
-      body.legL.rotation.x = swing;
-      body.legR.rotation.x = -swing;
-      body.armL.rotation.x = -swing * 0.8;
-      body.armR.rotation.x = swing * 0.8;
+      // Seated like the prototype: knees up, hands on the desk, a little higher, facing the way the seat does.
+      body.legL.rotation.x = seat ? -1.45 : swing;
+      body.legR.rotation.x = seat ? -1.45 : -swing;
+      body.armL.rotation.x = seat ? -0.5 : -swing * 0.8;
+      body.armR.rotation.x = seat ? -0.5 : swing * 0.8;
       const bob = gliding ? Math.abs(Math.sin(body.walk * 12)) * 0.035 : 0;
-      body.group.position.set(at.x + 0.5, bob, at.y + 0.5);
-      body.group.rotation.y = FACE[FACING[person.facing] ?? 'down'] ?? 0;
+      body.group.position.set(at.x, bob + (seat ? 0.08 : 0), at.y);
+      const target = seat ? SEAT_FACING[seat] : (mine?.facing ?? person.facing);
+      const turn = Math.atan2(
+        Math.sin(target - body.group.rotation.y),
+        Math.cos(target - body.group.rotation.y),
+      );
+      body.group.rotation.y += turn * Math.min(1, dt * 10);
+      moving ||= Math.abs(turn) > 0.01;
       body.dome.visible = talk.focused.includes(person.id);
       body.ring.visible = Boolean(talk.group?.members.includes(person.id));
-      v.set(at.x + 0.5, 1.48, at.y + 0.5).project(camera);
+      v.set(at.x, 1.48, at.y).project(camera);
       body.tag.style.transform = `translate(${((v.x + 1) / 2) * width}px,${((1 - v.y) / 2) * height}px) translate(-50%,-100%)`;
       const label = body.tag.lastChild as HTMLElement;
       const text = person.id === this.me ? 'You' : (person.name.split(' ')[0] ?? '');

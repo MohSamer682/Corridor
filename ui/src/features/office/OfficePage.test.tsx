@@ -10,10 +10,20 @@ import { hasWebGL } from './webgl';
 vi.mock('./webgl', () => ({ hasWebGL: vi.fn(() => true) }));
 const walk = vi.fn();
 const send = vi.fn();
-vi.mock('./presence/usePresence', () => ({ usePresence: () => ({ walk, step: vi.fn(), send }) }));
-vi.mock('./OfficeScene', () => ({
-  OfficeScene: ({ view }: { view: { mode: string } }) => <div data-testid="scene">{view.mode}</div>,
-}));
+vi.mock('./presence/usePresence', () => ({ usePresence: () => ({ move: walk, send }) }));
+const walkTo = vi.fn();
+vi.mock('./OfficeScene', async () => {
+  const { useEffect } = await import('react');
+  return {
+    OfficeScene: ({ view, onReady }: { view: { mode: string }; onReady: (c: object) => void }) => {
+      useEffect(
+        () => onReady({ rotate: vi.fn(), zoomBy: vi.fn(), lookAt: vi.fn(), walkTo }),
+        [onReady],
+      );
+      return <div data-testid="scene">{view.mode}</div>;
+    },
+  };
+});
 
 const user = userEvent.setup();
 const floor = (id: string, level: number, code: string, name: string) => ({
@@ -179,12 +189,12 @@ it('walks you to your desk once you are on its floor', async () => {
   await user.click(await screen.findByRole('button', { name: 'Go to my desk' }));
 
   expect(await screen.findByTestId('scene')).toHaveTextContent('floor');
-  expect(walk).not.toHaveBeenCalled();
+  expect(walkTo).not.toHaveBeenCalled();
   const me = useSessionStore.getState().user!.id!;
   usePresenceStore
     .getState()
-    .arrive([{ userId: me, displayName: 'Me', x: 1, y: 1, facing: 'S', moving: false }]);
-  await vi.waitFor(() => expect(walk).toHaveBeenCalledWith(2, 1));
+    .arrive([{ userId: me, displayName: 'Me', x: 1, y: 1, facing: 0, moving: false }]);
+  await vi.waitFor(() => expect(walkTo).toHaveBeenCalledWith(2.5, 1.5));
 });
 
 it('explains how to get a desk when you have none', async () => {
@@ -207,7 +217,7 @@ it('greets the first person on a floor and says when the connection drops', asyn
   usePresenceStore.getState().setConnected(true);
   usePresenceStore
     .getState()
-    .arrive([{ userId: me, displayName: 'Me', x: 1, y: 1, facing: 'S', moving: false }]);
+    .arrive([{ userId: me, displayName: 'Me', x: 1, y: 1, facing: 0, moving: false }]);
   expect(await screen.findByText("You're the first one on this floor.")).toBeInTheDocument();
 
   usePresenceStore.getState().setConnected(false);
@@ -221,8 +231,8 @@ it('explains focus mode, yours and someone else’s, and switches it from the to
   const me = useSessionStore.getState().user!.id!;
   usePresenceStore.getState().setConnected(true);
   usePresenceStore.getState().arrive([
-    { userId: me, displayName: 'Me', x: 1, y: 1, facing: 'S', moving: false },
-    { userId: 'nadia', displayName: 'Nadia Fahmy', x: 2, y: 1, facing: 'S', moving: false },
+    { userId: me, displayName: 'Me', x: 1, y: 1, facing: 0, moving: false },
+    { userId: 'nadia', displayName: 'Nadia Fahmy', x: 2, y: 1, facing: 0, moving: false },
   ]);
   expect(await screen.findByText('Walk close to a teammate to start talking.')).toBeInTheDocument();
 
