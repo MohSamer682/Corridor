@@ -10,10 +10,12 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.corridor.office.TestcontainersConfiguration;
+import com.corridor.office.common.domain.ConflictException;
 import com.corridor.office.common.domain.InvalidInputException;
 import com.corridor.office.common.security.CurrentUser;
 import com.corridor.office.conversations.application.ConversationService;
 import com.corridor.office.conversations.application.ConversationService.GroupView;
+import com.corridor.office.conversations.application.GroupMedia;
 import com.corridor.office.conversations.application.SignalRelay;
 import com.corridor.office.conversations.application.SignalRelay.SignalView;
 import com.corridor.office.identity.infrastructure.UserRepository;
@@ -36,7 +38,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 @SpringBootTest(
         properties = {
             "spring.flyway.locations=classpath:db/migration,classpath:db/seed",
-            "spring.flyway.out-of-order=true"
+            "spring.flyway.out-of-order=true",
+            "app.livekit.api-key=testkey",
+            "app.livekit.api-secret=a-test-secret-that-is-at-least-32-bytes-long"
         })
 @Import(TestcontainersConfiguration.class)
 @ActiveProfiles("test")
@@ -55,6 +59,9 @@ class SignalingIntegrationTest {
 
     @Autowired
     SignalRelay relay;
+
+    @Autowired
+    GroupMedia groupMedia;
 
     @Autowired
     UserRepository users;
@@ -134,12 +141,14 @@ class SignalingIntegrationTest {
         }
         stand(five.toArray(Standing[]::new));
         assertThat(lastGroupSentTo(nour).route()).isEqualTo("PEER_TO_PEER");
+        assertThatThrownBy(() -> groupMedia.join(nour)).isInstanceOf(ConflictException.class);
 
         five.add(new Standing(UUID.randomUUID(), 43, 18));
         five.add(new Standing(UUID.randomUUID(), 44, 18));
         stand(five.toArray(Standing[]::new));
 
-        assertThat(lastGroupSentTo(nour).route()).isEqualTo("TOO_BIG");
+        assertThat(lastGroupSentTo(nour).route()).isEqualTo("SFU");
+        assertThat(groupMedia.join(nour).token()).isNotBlank();
         relay.relay(nour, omar.userId(), "offer", "{}");
         verify(sockets, never()).convertAndSendToUser(any(), eq("/queue/signals"), any());
     }

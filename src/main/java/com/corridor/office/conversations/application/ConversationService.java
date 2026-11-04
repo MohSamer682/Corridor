@@ -30,7 +30,7 @@ public class ConversationService {
 
     /**
      * Sent to a person whenever their group changes; {@code groupId} is null when they are in none. {@code route}
-     * says how voice travels: PEER_TO_PEER, or TOO_BIG for chat only.
+     * says how voice travels: PEER_TO_PEER, or SFU through LiveKit.
      */
     public record GroupView(UUID groupId, List<UUID> members, String route) {}
 

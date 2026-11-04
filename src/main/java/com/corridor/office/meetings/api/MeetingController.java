@@ -2,6 +2,8 @@ package com.corridor.office.meetings.api;
 
 import com.corridor.office.common.api.ApiResult;
 import com.corridor.office.common.security.CurrentUser;
+import com.corridor.office.meetings.MediaTokens.Join;
+import com.corridor.office.meetings.application.MeetingMedia;
 import com.corridor.office.meetings.application.MeetingService;
 import com.corridor.office.meetings.application.MeetingService.MeetingView;
 import com.corridor.office.meetings.application.MeetingService.ScheduleMeeting;
@@ -32,9 +34,20 @@ import org.springframework.web.bind.annotation.RestController;
 class MeetingController {
 
     private final MeetingService meetings;
+    private final MeetingMedia media;
 
-    MeetingController(MeetingService meetings) {
+    MeetingController(MeetingService meetings, MeetingMedia media) {
         this.meetings = meetings;
+        this.media = media;
+    }
+
+    @PostMapping("/api/v1/meetings/{meetingId}/token")
+    @Operation(summary = "A LiveKit token to join a meeting: invitees only, from 10 minutes before it starts")
+    @ApiResponse(responseCode = "200", description = "Where to connect and the token")
+    @ApiResponse(responseCode = "403", description = "You're not invited to this meeting.")
+    @ApiResponse(responseCode = "409", description = "Too early, ended or cancelled")
+    Join join(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID meetingId) {
+        return media.join(CurrentUser.from(jwt), meetingId);
     }
 
     @PostMapping("/api/v1/meetings")

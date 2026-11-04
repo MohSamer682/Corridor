@@ -12,3 +12,5 @@ springdoc.swagger-ui.enabled: true
 app.security.login-limit.max-attempts: 200
 app.media.turn-urls: turn:127.0.0.1:3478
 app.media.turn-secret: local-turn-secret
+app.livekit.api-key: corridor
+app.livekit.api-secret: local-livekit-secret-0123456789abcdef

@@ -1,7 +1,7 @@
 package com.corridor.office.conversations.domain;
 
 /** How a group's voice and video travel; small groups connect directly to each other (ADR-005). */
-public sealed interface MediaRoute permits MediaRoute.PeerToPeer, MediaRoute.TooBig {
+public sealed interface MediaRoute permits MediaRoute.PeerToPeer, MediaRoute.Sfu {
 
     int MAX_PEERS = 4;
 
@@ -11,7 +11,7 @@ public sealed interface MediaRoute permits MediaRoute.PeerToPeer, MediaRoute.Too
     boolean relaysSignals();
 
     static MediaRoute forGroup(Group group) {
-        return group.members().size() <= MAX_PEERS ? new PeerToPeer() : new TooBig();
+        return group.members().size() <= MAX_PEERS ? new PeerToPeer() : new Sfu();
     }
 
     record PeerToPeer() implements MediaRoute {
@@ -27,12 +27,12 @@ public sealed interface MediaRoute permits MediaRoute.PeerToPeer, MediaRoute.Too
         }
     }
 
-    /** Chat only, until meeting rooms bring an SFU (F-09). */
-    record TooBig() implements MediaRoute {
+    /** Five or more people: everyone sends once to LiveKit, which forwards to the rest. */
+    record Sfu() implements MediaRoute {
 
         @Override
         public String name() {
-            return "TOO_BIG";
+            return "SFU";
         }
 
         @Override
