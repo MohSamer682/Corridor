@@ -3,6 +3,8 @@ package com.corridor.office.spaces.application;
 import com.corridor.office.spaces.SpaceCatalog;
 import com.corridor.office.spaces.TileGrid;
 import com.corridor.office.spaces.TileGrid.Tile;
+import com.corridor.office.spaces.domain.Floor;
+import com.corridor.office.spaces.domain.Room;
 import com.corridor.office.spaces.domain.RoomKind;
 import com.corridor.office.spaces.domain.Seat;
 import com.corridor.office.spaces.domain.SeatKind;
@@ -68,6 +70,20 @@ class RepositorySpaceCatalog implements SpaceCatalog {
                 .filter(room -> room.isPrivate())
                 .map(room ->
                         new PrivateRoom(room.id(), room.name(), room.minX(), room.minY(), room.maxX(), room.maxY()))
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<BookableRoom> bookableRooms(UUID organizationId) {
+        var rooms = this.rooms.findBookable(organizationId);
+        var places = floors
+                .findAllById(rooms.stream().map(Room::floorId).distinct().toList())
+                .stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        Floor::id, f -> f.building().name() + " \u00b7 " + f.code()));
+        return rooms.stream()
+                .map(room -> new BookableRoom(room.id(), room.name(), room.floorId(), places.get(room.floorId())))
                 .toList();
     }
 

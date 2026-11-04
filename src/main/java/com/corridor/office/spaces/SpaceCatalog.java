@@ -19,6 +19,12 @@ public interface SpaceCatalog {
     /** The rooms of a floor that shut out sound: offices and meeting rooms. Empty for a floor of another company. */
     List<PrivateRoom> privateRooms(UUID organizationId, UUID floorId);
 
+    /** Meeting and conference rooms of a company, by building, floor and name. */
+    List<BookableRoom> bookableRooms(UUID organizationId);
+
+    /** A room meetings can be booked in, and where it is ("Corridor HQ · L2"). */
+    record BookableRoom(UUID id, String name, UUID floorId, String place) {}
+
     /** A room whose walls run along its bounds; you are inside when you stand within the walls. */
     record PrivateRoom(UUID id, String name, int minX, int minY, int maxX, int maxY) {
 
