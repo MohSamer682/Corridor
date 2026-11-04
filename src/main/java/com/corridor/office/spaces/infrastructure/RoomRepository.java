@@ -20,4 +20,13 @@ public interface RoomRepository extends JpaRepository<Room, UUID> {
               and r.kind = com.corridor.office.spaces.domain.RoomKind.OFFICE
             order by f.building.name, f.level, r.name""")
     List<Room> findOffices(UUID organizationId);
+
+    @Query(
+            """
+            select r from Room r, Floor f
+            where f.id = r.floorId and f.building.organizationId = :organizationId
+              and r.kind in (com.corridor.office.spaces.domain.RoomKind.MEETING,
+                             com.corridor.office.spaces.domain.RoomKind.CONFERENCE)
+            order by f.building.name, f.level, r.name""")
+    List<Room> findBookable(UUID organizationId);
 }
