@@ -10,6 +10,7 @@ import com.corridor.office.spaces.infrastructure.FloorLayoutRepository;
 import com.corridor.office.spaces.infrastructure.FloorRepository;
 import com.corridor.office.spaces.infrastructure.RoomRepository;
 import com.corridor.office.spaces.infrastructure.SeatRepository;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
@@ -55,6 +56,19 @@ class RepositorySpaceCatalog implements SpaceCatalog {
                     });
                     desk.assignTo(userId);
                 });
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PrivateRoom> privateRooms(UUID organizationId, UUID floorId) {
+        if (floors.findInOrganization(floorId, organizationId).isEmpty()) {
+            return List.of();
+        }
+        return rooms.findByFloorIdOrderByName(floorId).stream()
+                .filter(room -> room.isPrivate())
+                .map(room ->
+                        new PrivateRoom(room.id(), room.name(), room.minX(), room.minY(), room.maxX(), room.maxY()))
+                .toList();
     }
 
     // Office desks belong to whoever HR gave the office to, so sitting there claims nothing.

@@ -10,6 +10,8 @@ import com.corridor.office.presence.domain.MovementIntent.Enter;
 import com.corridor.office.presence.domain.MovementIntent.Leave;
 import com.corridor.office.presence.domain.MovementIntent.Step;
 import com.corridor.office.presence.domain.MovementIntent.WalkTo;
+import com.corridor.office.presence.events.FloorTicked;
+import com.corridor.office.presence.events.FloorTicked.Standing;
 import com.corridor.office.spaces.SpaceCatalog;
 import com.corridor.office.spaces.TileGrid.Tile;
 import java.util.List;
@@ -18,6 +20,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -46,11 +49,17 @@ public class PresenceService {
     private final SpaceCatalog spaces;
     private final SimpMessagingTemplate messages;
     private final OpenSockets sockets;
+    private final ApplicationEventPublisher events;
 
-    PresenceService(SpaceCatalog spaces, SimpMessagingTemplate messages, OpenSockets sockets) {
+    PresenceService(
+            SpaceCatalog spaces,
+            SimpMessagingTemplate messages,
+            OpenSockets sockets,
+            ApplicationEventPublisher events) {
         this.spaces = spaces;
         this.messages = messages;
         this.sockets = sockets;
+        this.events = events;
     }
 
     public void enter(CurrentUser person, UUID floorId) {
@@ -137,6 +146,12 @@ public class PresenceService {
                 floor.snapshot = floor.session.everyone();
                 frame.settled().forEach(s -> spaces.sat(floor.organizationId, floorId, s.userId(), s.tile()));
                 messages.convertAndSend("/topic/floors/" + floorId + "/frames", FrameMessage.of(frame));
+                events.publishEvent(new FloorTicked(
+                        floor.organizationId,
+                        floorId,
+                        floor.snapshot.stream()
+                                .map(a -> new Standing(a.userId(), a.x(), a.y()))
+                                .toList()));
             }
             // shortcut: an enter that races this removal is lost and the client re-enters on reconnect; fine on one
             // instance.

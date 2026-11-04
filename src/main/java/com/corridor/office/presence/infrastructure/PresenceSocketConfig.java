@@ -25,7 +25,7 @@ import org.springframework.web.socket.handler.WebSocketHandlerDecorator;
 @Configuration(proxyBeanMethods = false)
 class PresenceSocketConfig implements WebSocketMessageBrokerConfigurer {
 
-    private static final Pattern FLOOR_TOPIC = Pattern.compile("/topic/floors/([0-9a-f-]{36})/frames");
+    private static final Pattern FLOOR_TOPIC = Pattern.compile("/topic/floors/([0-9a-f-]{36})/[a-z]+");
 
     private final SocketRegistry sockets;
     // Looked up lazily: PresenceService needs the messaging template this configuration helps build.
