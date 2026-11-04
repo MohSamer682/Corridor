@@ -129,6 +129,11 @@ public class MeetingService {
                 .toList());
     }
 
+    /** Everyone active in your company, for the invite picker. */
+    public List<Member> invitable(CurrentUser viewer) {
+        return context.directory().members(viewer.organizationId(), null);
+    }
+
     public List<BookableRoom> bookableRooms(CurrentUser viewer) {
         return spaces.bookableRooms(viewer.organizationId());
     }

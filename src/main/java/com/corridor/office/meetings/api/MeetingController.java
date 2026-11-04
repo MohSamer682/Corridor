@@ -2,6 +2,7 @@ package com.corridor.office.meetings.api;
 
 import com.corridor.office.common.api.ApiResult;
 import com.corridor.office.common.security.CurrentUser;
+import com.corridor.office.identity.UserDirectory.Member;
 import com.corridor.office.meetings.MediaTokens.Join;
 import com.corridor.office.meetings.application.MeetingMedia;
 import com.corridor.office.meetings.application.MeetingService;
@@ -77,6 +78,13 @@ class MeetingController {
     @ApiResponse(responseCode = "200", description = "Meeting and conference rooms")
     List<BookableRoom> rooms(@AuthenticationPrincipal Jwt jwt) {
         return meetings.bookableRooms(CurrentUser.from(jwt));
+    }
+
+    @GetMapping("/api/v1/meeting-invitees")
+    @Operation(summary = "People in your company you can invite, by name")
+    @ApiResponse(responseCode = "200", description = "Active people with their team")
+    List<Member> invitees(@AuthenticationPrincipal Jwt jwt) {
+        return meetings.invitable(CurrentUser.from(jwt));
     }
 
     @GetMapping("/api/v1/meeting-rooms/{roomId}/meetings")

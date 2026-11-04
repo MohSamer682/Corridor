@@ -32,6 +32,7 @@ export function AppShell() {
             {(
               [
                 ['/office', 'Office'],
+                ['/meetings', 'Meetings'],
                 ['/attendance', 'Attendance'],
                 ['/me', 'Profile'],
                 ...(user.role === 'ADMIN' || user.role === 'HR' ? adminLinks : []),

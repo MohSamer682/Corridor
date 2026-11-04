@@ -16,7 +16,11 @@ import { usePresence } from './presence/usePresence';
 import { useConversationStore } from '../talk/conversationStore';
 import { CallPanel, ChatPanel } from '../talk/TalkPanels';
 import { useTalkHint } from '../talk/useTalk';
+import { MeetingPrompt } from '../meetings/MeetingPrompt';
 import { usePeerConnections } from '../talk/usePeerConnections';
+import { useLiveKitCall, type LiveKitJoin } from '../talk/useLiveKitCall';
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '../../shared/api/apiClient';
 import type { Building, Campus, FloorSummary, OfficeControls, OfficeView, Tools } from './types';
 import { useCampus, useFloorLayouts, useMyDesk, usePresenceCounts } from './useOffice';
 import { hasWebGL } from './webgl';
@@ -77,7 +81,16 @@ export function OfficePage() {
   const amHere = usePresenceStore((state) => (meId ? Boolean(state.people[meId]) : false));
   const group = useConversationStore((state) => state.group);
   const inFocus = useConversationStore((state) => (meId ? state.focused.includes(meId) : false));
-  const call = usePeerConnections(group, meId, presence.send);
+  const peerCall = usePeerConnections(group, meId, presence.send);
+  // Five or more people talk through LiveKit; the ticket is tied to the group.
+  const sfuTicket = useQuery({
+    queryKey: ['conversation-media', group?.groupId],
+    queryFn: () => apiClient<LiveKitJoin>('/api/v1/conversations/media'),
+    enabled: group?.route === 'SFU',
+    staleTime: Infinity,
+  });
+  const sfuCall = useLiveKitCall(group?.route === 'SFU' ? (sfuTicket.data ?? null) : null);
+  const call = group?.route === 'SFU' ? sfuCall : peerCall;
   const talkHint = useTalkHint(meId);
   // "Go to my desk" opens the floor, then walks there once you have arrived.
   const location = useLocation();
@@ -199,6 +212,7 @@ export function OfficePage() {
             <CallPanel call={call} me={meId} />
           </>
         )}
+        {view.mode === 'floor' && meId && <MeetingPrompt me={meId} rooms={view.layout.rooms} />}
         {view.mode === 'floor' && !group && (
           <Minimap layout={view.layout} level={view.floor.level} controls={controls} />
         )}
