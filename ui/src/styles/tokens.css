@@ -10,6 +10,8 @@
   --accent-text: #23395d;
   --signal: #c9a266;
   --danger-bg: #f6dfdb;
+  --warn-bg: #f6ead4;
+  --warn-ink: #7a5216;
   --danger-ink: #8e2f25;
   --info-bg: #e4eaf4;
   --info-ink: #23395d;
@@ -38,6 +40,8 @@
     --accent-text: #a9c3ea;
     --signal: #d6b47a;
     --danger-bg: #3d1d1a;
+    --warn-bg: #3a2e17;
+    --warn-ink: #e8c98f;
     --danger-ink: #f4a79d;
     --info-bg: #1d2a40;
     --info-ink: #c5d5ee;
@@ -62,6 +66,8 @@
   --accent-text: #a9c3ea;
   --signal: #d6b47a;
   --danger-bg: #3d1d1a;
+  --warn-bg: #3a2e17;
+  --warn-ink: #e8c98f;
   --danger-ink: #f4a79d;
   --info-bg: #1d2a40;
   --info-ink: #c5d5ee;

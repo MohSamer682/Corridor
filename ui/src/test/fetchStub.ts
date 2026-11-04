@@ -5,12 +5,23 @@ type Call = { url: string; init: RequestInit };
 
 let calls: Call[] = [];
 
+// The top bar's punch clock asks on every signed-in page; tests that don't care get "not punched in".
+const PUNCH = { punchedIn: false, since: null, lastOut: null, workedTodayMinutes: 0 };
+const isPunchClock = (url: string, init: RequestInit) =>
+  url === '/api/v1/me/punch' && (init.method ?? 'GET') === 'GET';
+const json = (status: number, body: unknown) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': status >= 400 ? 'application/problem+json' : 'application/json' },
+  });
+
 export function stubFetch(responses: StubbedResponse[], options: { delayMs?: number } = {}) {
   calls = [];
   const queue = [...responses];
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string, init: RequestInit = {}) => {
+      if (isPunchClock(url, init)) return json(200, PUNCH);
       calls.push({ url, init });
       const next = queue.shift();
       if (!next) throw new Error(`Unexpected request to ${url}`);
@@ -28,11 +39,12 @@ export function stubFetch(responses: StubbedResponse[], options: { delayMs?: num
 
 type Handler = (method: string, url: string, body: unknown) => StubbedResponse;
 
-export function stubApi(handler: Handler) {
+export function stubApi(handler: Handler, handlesPunch = false) {
   calls = [];
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string, init: RequestInit = {}) => {
+      if (isPunchClock(url, init) && !handlesPunch) return json(200, PUNCH);
       calls.push({ url, init });
       const body = typeof init.body === 'string' ? JSON.parse(init.body) : undefined;
       const [status, payload] = handler(init.method ?? 'GET', url, body);

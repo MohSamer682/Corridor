@@ -1,4 +1,5 @@
 import { Link, NavLink, Outlet } from 'react-router';
+import { PunchClock } from '../features/attendance/PunchClock';
 import { initials } from '../features/auth/initials';
 import { useSessionStore } from '../features/auth/sessionStore';
 import { BrandMark } from './BrandMark';
@@ -31,6 +32,7 @@ export function AppShell() {
             {(
               [
                 ['/office', 'Office'],
+                ['/attendance', 'Attendance'],
                 ['/me', 'Profile'],
                 ...(user.role === 'ADMIN' || user.role === 'HR' ? adminLinks : []),
               ] as const
@@ -51,7 +53,7 @@ export function AppShell() {
         )}
         {user && (
           <div className="flex items-center gap-3">
-            <span className="text-sm text-muted">{user.organizationName}</span>
+            <PunchClock />
             <span
               title={user.displayName}
               className="flex size-11 items-center justify-center rounded-full border border-line bg-avatar-bg text-sm font-semibold text-avatar-ink"

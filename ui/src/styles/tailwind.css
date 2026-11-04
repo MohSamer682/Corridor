@@ -12,6 +12,8 @@
   --color-signal: var(--signal);
   --color-danger-bg: var(--danger-bg);
   --color-danger-ink: var(--danger-ink);
+  --color-warn-bg: var(--warn-bg);
+  --color-warn-ink: var(--warn-ink);
   --color-info-bg: var(--info-bg);
   --color-info-ink: var(--info-ink);
   --color-accent-text: var(--accent-text);
