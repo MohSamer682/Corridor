@@ -1,5 +1,6 @@
 package com.corridor.office.spaces;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -14,4 +15,15 @@ public interface SpaceCatalog {
      * had before is freed; anything else (a sofa, someone else's desk, an office desk) changes nothing.
      */
     void sat(UUID organizationId, UUID floorId, UUID userId, TileGrid.Tile tile);
+
+    /** The rooms of a floor that shut out sound: offices and meeting rooms. Empty for a floor of another company. */
+    List<PrivateRoom> privateRooms(UUID organizationId, UUID floorId);
+
+    /** A room whose walls run along its bounds; you are inside when you stand within the walls. */
+    record PrivateRoom(UUID id, String name, int minX, int minY, int maxX, int maxY) {
+
+        public boolean contains(int x, int y) {
+            return x > minX && x < maxX && y > minY && y < maxY;
+        }
+    }
 }
