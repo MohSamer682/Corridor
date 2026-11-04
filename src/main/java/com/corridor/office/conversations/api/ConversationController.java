@@ -5,8 +5,11 @@ import com.corridor.office.common.domain.DomainException;
 import com.corridor.office.common.security.CurrentUser;
 import com.corridor.office.conversations.application.ConversationService;
 import com.corridor.office.conversations.application.ConversationService.FocusView;
+import com.corridor.office.conversations.application.IceServerService;
+import com.corridor.office.conversations.application.IceServerService.IceServers;
 import com.corridor.office.conversations.application.MessageService;
 import com.corridor.office.conversations.application.MessageService.MessageView;
+import com.corridor.office.conversations.application.SignalRelay;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -37,15 +40,26 @@ class ConversationController {
 
     record ChatMessage(String body) {}
 
+    record SignalMessage(UUID to, String kind, String payload) {}
+
     record ErrorMessage(String code, String detail) {}
 
     private final ConversationService conversations;
     private final MessageService messages;
+    private final SignalRelay signals;
+    private final IceServerService ice;
     private final MessageSource copy;
 
-    ConversationController(ConversationService conversations, MessageService messages, MessageSource copy) {
+    ConversationController(
+            ConversationService conversations,
+            MessageService messages,
+            SignalRelay signals,
+            IceServerService ice,
+            MessageSource copy) {
         this.conversations = conversations;
         this.messages = messages;
+        this.signals = signals;
+        this.ice = ice;
         this.copy = copy;
     }
 
@@ -63,6 +77,11 @@ class ConversationController {
         messages.send(person(principal), chat.body());
     }
 
+    @MessageMapping("/conversations/signal")
+    void signal(Principal principal, @Payload SignalMessage signal) {
+        signals.relay(person(principal), signal.to(), signal.kind(), signal.payload());
+    }
+
     @MessageExceptionHandler(DomainException.class)
     @SendToUser(destinations = "/queue/errors", broadcast = false)
     ErrorMessage refuse(DomainException refusal) {
@@ -78,6 +97,13 @@ class ConversationController {
             @PathVariable UUID floorId,
             @RequestParam(required = false) String before) {
         return messages.history(CurrentUser.from(jwt), floorId, before);
+    }
+
+    @GetMapping("/api/v1/media/ice-servers")
+    @Operation(summary = "STUN and TURN servers for calls; TURN credentials last 10 minutes")
+    @ApiResponse(responseCode = "200", description = "Pass iceServers to RTCPeerConnection as is")
+    IceServers iceServers(@AuthenticationPrincipal Jwt jwt) {
+        return ice.forPerson(CurrentUser.from(jwt).userId());
     }
 
     @GetMapping("/api/v1/floors/{floorId}/focus")
