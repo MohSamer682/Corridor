@@ -4,6 +4,7 @@ import com.corridor.office.common.security.Role;
 import com.corridor.office.identity.application.UserSummary;
 import com.corridor.office.identity.domain.User;
 import com.corridor.office.identity.domain.UserStatus;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
@@ -26,6 +27,9 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     boolean existsByEmail(String normalizedEmail);
 
     long countByOrganizationIdAndRoleAndStatus(UUID organizationId, Role role, UserStatus status);
+
+    @EntityGraph(attributePaths = "team")
+    List<User> findByOrganizationIdAndStatus(UUID organizationId, UserStatus status);
 
     long countByTeamId(UUID teamId);
 
