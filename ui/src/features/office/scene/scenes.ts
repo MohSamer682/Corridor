@@ -14,7 +14,9 @@ import {
   canvasTex,
   cyl,
   mergeInto,
+  repeated,
   rng,
+  type Random,
 } from './core';
 import { addEnvironment, bench, car, facadeTex, paving, tree } from './environment';
 import { furnish, type SignSpec } from './furniture';
@@ -77,6 +79,43 @@ const ROUGH: Record<string, number> = {
   epoxy: 0.22,
 };
 
+/* Fine grain (concrete specks, carpet fibre, terrazzo chips) is painted once into a small
+   seamless tile and laid down as a pattern, instead of tens of thousands of draws per floor. */
+const TILE = 4 * FS;
+const ROUGH_SCALE = 4;
+const tiles = new Map<string, CanvasPattern>();
+
+function detail(
+  g: CanvasRenderingContext2D,
+  key: string,
+  seed: number,
+  paint: (
+    t: CanvasRenderingContext2D,
+    r: Random,
+    dot: (x: number, y: number, draw: (x: number, y: number) => void) => void,
+  ) => void,
+) {
+  let pattern = tiles.get(key);
+  if (!pattern) {
+    const { c, g: t } = canvas(TILE, TILE);
+    // Draws near an edge again on the far side, so the tile repeats without seams.
+    const dot = (x: number, y: number, draw: (x: number, y: number) => void) => {
+      for (const ox of [0, -TILE, TILE])
+        for (const oy of [0, -TILE, TILE])
+          if (
+            Math.abs(x + ox - TILE / 2) < TILE / 2 + 12 &&
+            Math.abs(y + oy - TILE / 2) < TILE / 2 + 12
+          )
+            draw(x + ox, y + oy);
+    };
+    paint(t, rng(seed), dot);
+    pattern = g.createPattern(c, 'repeat') ?? undefined;
+    if (!pattern) throw new Error('Canvas patterns are not available');
+    tiles.set(key, pattern);
+  }
+  return pattern;
+}
+
 function paintMaterial(
   g: CanvasRenderingContext2D,
   mat: string,
@@ -112,10 +151,15 @@ function paintMaterial(
       g.fillStyle = gr;
       g.fillRect(cx - rad, cy - rad, rad * 2, rad * 2);
     }
-    for (let i = 0; i < (pw * ph) / 260; i++) {
-      g.fillStyle = r() < 0.5 ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.035)';
-      g.fillRect(px + r() * pw, py + r() * ph, 2 + r() * 6, 2 + r() * 6);
-    }
+    g.fillStyle = detail(g, 'concrete', 11, (t, tr, dot) => {
+      for (let i = 0; i < (TILE * TILE) / 260; i++) {
+        t.fillStyle = tr() < 0.5 ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.035)';
+        const w = 2 + tr() * 6;
+        const h = 2 + tr() * 6;
+        dot(tr() * TILE, tr() * TILE, (x, y) => t.fillRect(x, y, w, h));
+      }
+    });
+    g.fillRect(px, py, pw, ph);
     g.strokeStyle = 'rgba(0,0,0,.06)';
     g.lineWidth = 1;
     for (let x = 0; x <= w; x += 4) {
@@ -131,28 +175,32 @@ function paintMaterial(
       g.stroke();
     }
   } else if (['carpet', 'navy', 'charcoal', 'sage'].includes(mat)) {
-    for (let i = 0; i < (pw * ph) / 30; i++) {
-      g.fillStyle = r() < 0.5 ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.06)';
-      g.fillRect(px + r() * pw, py + r() * ph, 1.5, 1.5);
-    }
-    for (let y = 0; y < h; y++)
-      for (let x = 0; x < w; x++) {
-        g.fillStyle = (x + y) % 2 ? 'rgba(255,255,255,.035)' : 'rgba(0,0,0,.035)';
-        g.fillRect(px + x * FS, py + y * FS, FS, FS);
-        g.strokeStyle = 'rgba(0,0,0,.04)';
-        for (let k = 0; k < 4; k++) {
-          g.beginPath();
-          const o = (k * FS) / 4 + FS / 8;
-          if ((x + y) % 2) {
-            g.moveTo(px + x * FS + o, py + y * FS);
-            g.lineTo(px + x * FS + o, py + y * FS + FS);
-          } else {
-            g.moveTo(px + x * FS, py + y * FS + o);
-            g.lineTo(px + x * FS + FS, py + y * FS + o);
-          }
-          g.stroke();
-        }
+    // Carpet tiles alternate their pile direction, as laid carpet tiles do.
+    g.fillStyle = detail(g, 'carpet', 13, (t, tr, dot) => {
+      for (let i = 0; i < (TILE * TILE) / 30; i++) {
+        t.fillStyle = tr() < 0.5 ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.06)';
+        dot(tr() * TILE, tr() * TILE, (x, y) => t.fillRect(x, y, 1.5, 1.5));
       }
+      t.strokeStyle = 'rgba(0,0,0,.04)';
+      for (let y = 0; y < TILE / FS; y++)
+        for (let x = 0; x < TILE / FS; x++) {
+          t.fillStyle = (x + y) % 2 ? 'rgba(255,255,255,.035)' : 'rgba(0,0,0,.035)';
+          t.fillRect(x * FS, y * FS, FS, FS);
+          t.beginPath();
+          for (let k = 0; k < 4; k++) {
+            const o = (k * FS) / 4 + FS / 8;
+            if ((x + y) % 2) {
+              t.moveTo(x * FS + o, y * FS);
+              t.lineTo(x * FS + o, y * FS + FS);
+            } else {
+              t.moveTo(x * FS, y * FS + o);
+              t.lineTo(x * FS + FS, y * FS + o);
+            }
+          }
+          t.stroke();
+        }
+    });
+    g.fillRect(px, py, pw, ph);
   } else if (mat === 'oak' || mat === 'walnut' || mat === 'deck') {
     const pl = FS / 3;
     for (let row = 0; row * pl < ph; row++) {
@@ -220,12 +268,18 @@ function paintMaterial(
       'rgba(255,255,255,.4)',
       'rgba(60,70,90,.18)',
     ];
-    for (let i = 0; i < (pw * ph) / 90; i++) {
-      g.fillStyle = chips[Math.floor(r() * 4)] ?? 'rgba(0,0,0,.1)';
-      g.beginPath();
-      g.arc(px + r() * pw, py + r() * ph, 0.6 + r() * 1.8, 0, 7);
-      g.fill();
-    }
+    g.fillStyle = detail(g, 'terrazzo', 17, (t, tr, dot) => {
+      for (let i = 0; i < (TILE * TILE) / 90; i++) {
+        t.fillStyle = chips[Math.floor(tr() * 4)] ?? 'rgba(0,0,0,.1)';
+        const radius = 0.6 + tr() * 1.8;
+        dot(tr() * TILE, tr() * TILE, (x, y) => {
+          t.beginPath();
+          t.arc(x, y, radius, 0, 7);
+          t.fill();
+        });
+      }
+    });
+    g.fillRect(px, py, pw, ph);
   } else if (mat === 'epoxy') {
     const gr = g.createLinearGradient(px, py, px + pw, py + ph);
     gr.addColorStop(0, 'rgba(255,255,255,.18)');
@@ -239,9 +293,14 @@ function paintMaterial(
 /** The floor surface: zone and room finishes, rugs, painted labels and a name plaque at each room door. */
 function paintFloor(f: FloorModel) {
   const { c, g } = canvas(f.W * FS, f.H * FS);
-  const { c: rc, g: rg } = canvas(c.width, c.height);
+  // Roughness only shifts the sheen between finishes, so a quarter of the resolution is plenty.
+  const { c: rc, g: rg } = canvas(
+    Math.ceil(c.width / ROUGH_SCALE),
+    Math.ceil(c.height / ROUGH_SCALE),
+  );
+  rg.scale(1 / ROUGH_SCALE, 1 / ROUGH_SCALE);
   rg.fillStyle = 'rgb(200,200,200)';
-  rg.fillRect(0, 0, rc.width, rc.height);
+  rg.fillRect(0, 0, c.width, c.height);
   g.fillStyle = '#3B404A';
   g.fillRect(0, 0, c.width, c.height);
   f.zones.forEach((z, i) =>
@@ -557,13 +616,13 @@ export function buildFloorScene(
     // The storeys below, as a glass facade down to the ground.
     const h = -0.5 - gy;
     const levels = Math.max(1, Math.round(h / 4.4));
-    const facade = facadeTex(levels, { seed: f.level * 5 });
-    const side = (repeat: number) => {
-      const t = canvasTex(facade);
-      t.wrapS = t.wrapT = THREE.RepeatWrapping;
-      t.repeat.set(repeat, 1);
-      return new THREE.MeshStandardMaterial({ map: t, roughness: 0.35, metalness: 0.15 });
-    };
+    const facade = canvasTex(facadeTex(levels, { seed: f.level * 5 }));
+    const side = (repeat: number) =>
+      new THREE.MeshStandardMaterial({
+        map: repeated(facade, repeat, 1),
+        roughness: 0.35,
+        metalness: 0.15,
+      });
     const body = new THREE.Mesh(new THREE.BoxGeometry(f.W, h, f.H), [
       side(f.H / 8),
       side(f.H / 8),
@@ -945,17 +1004,16 @@ function buildingModel(
   const h = levels * lh;
   const g = new THREE.Group();
   g.position.set(building.campusX, 0, building.campusZ);
-  const facade = facadeTex(levels, {
-    seed: building.name.length * 3,
-    top: tower ? '#7F9BB6' : '#9DB4C2',
-    bot: tower ? '#B8CCDD' : '#CBD9E1',
-  });
+  const facade = canvasTex(
+    facadeTex(levels, {
+      seed: building.name.length * 3,
+      top: tower ? '#7F9BB6' : '#9DB4C2',
+      bot: tower ? '#B8CCDD' : '#CBD9E1',
+    }),
+  );
   const side = (repeat: number) => {
-    const t = canvasTex(facade);
-    t.wrapS = t.wrapT = THREE.RepeatWrapping;
-    t.repeat.set(repeat, 1);
     return new THREE.MeshStandardMaterial({
-      map: t,
+      map: repeated(facade, repeat, 1),
       roughness: 0.3,
       metalness: 0.2,
       emissive: new THREE.Color('#1B2A45'),

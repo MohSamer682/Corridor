@@ -102,6 +102,14 @@ export function canvasTex(c: HTMLCanvasElement, repeat?: [number, number], raw =
   return t;
 }
 
+/** The same image repeated at another scale; the copies share one upload to the GPU. */
+export function repeated(base: THREE.Texture, x: number, y: number) {
+  const t = base.clone();
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(x, y);
+  return t;
+}
+
 /* ---------- procedural textures: wood grain, marble, woven fabric, brushed metal, leaves ---------- */
 
 const textures = new Map<string, THREE.Texture>();

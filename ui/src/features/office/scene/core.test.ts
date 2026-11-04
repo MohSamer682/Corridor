@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { mergeInto } from './core';
+import { mergeInto, repeated } from './core';
 
 const material = new THREE.MeshStandardMaterial({ color: '#123456' });
 
@@ -54,4 +54,17 @@ it('frees the source shapes once they are baked', () => {
   mergeInto(new THREE.Scene(), group);
 
   expect(disposed).toHaveBeenCalled();
+});
+
+it('repeats one image at different scales without uploading it again', () => {
+  const base = new THREE.CanvasTexture(document.createElement('canvas'));
+
+  const wide = repeated(base, 4, 1);
+  const narrow = repeated(base, 2, 1);
+
+  expect(wide.source).toBe(base.source);
+  expect(narrow.source).toBe(base.source);
+  expect(wide.repeat.toArray()).toEqual([4, 1]);
+  expect(narrow.repeat.toArray()).toEqual([2, 1]);
+  expect(wide.wrapS).toBe(THREE.RepeatWrapping);
 });
