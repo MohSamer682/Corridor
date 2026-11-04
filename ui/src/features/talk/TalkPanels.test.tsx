@@ -28,8 +28,8 @@ beforeEach(() => {
   useConversationStore.getState().reset();
   usePresenceStore.getState().reset();
   usePresenceStore.getState().arrive([
-    { userId: me, displayName: 'Mohamed Samer', x: 1, y: 1, facing: 'S', moving: false },
-    { userId: nour, displayName: 'Nour Hassan', x: 2, y: 1, facing: 'S', moving: false },
+    { userId: me, displayName: 'Mohamed Samer', x: 1, y: 1, facing: 0, moving: false },
+    { userId: nour, displayName: 'Nour Hassan', x: 2, y: 1, facing: 0, moving: false },
   ]);
   useConversationStore
     .getState()

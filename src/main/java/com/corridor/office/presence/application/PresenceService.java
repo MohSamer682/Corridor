@@ -8,12 +8,10 @@ import com.corridor.office.presence.domain.Frame;
 import com.corridor.office.presence.domain.MovementIntent;
 import com.corridor.office.presence.domain.MovementIntent.Enter;
 import com.corridor.office.presence.domain.MovementIntent.Leave;
-import com.corridor.office.presence.domain.MovementIntent.Step;
-import com.corridor.office.presence.domain.MovementIntent.WalkTo;
+import com.corridor.office.presence.domain.MovementIntent.Move;
 import com.corridor.office.presence.events.FloorTicked;
 import com.corridor.office.presence.events.FloorTicked.Standing;
 import com.corridor.office.spaces.SpaceCatalog;
-import com.corridor.office.spaces.TileGrid.Tile;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -74,12 +72,9 @@ public class PresenceService {
         floor.session.submit(new Enter(person.userId()));
     }
 
-    public void walk(CurrentUser person, Tile target) {
-        submitOnCurrentFloor(new WalkTo(person.userId(), target));
-    }
-
-    public void step(CurrentUser person, int dx, int dy) {
-        submitOnCurrentFloor(new Step(person.userId(), Integer.signum(dx), Integer.signum(dy)));
+    /** Where the person's browser has walked them; checked on the next tick. */
+    public void move(CurrentUser person, double x, double y, double facing, boolean moving) {
+        submitOnCurrentFloor(new Move(person.userId(), x, y, facing, moving));
     }
 
     public void leave(UUID userId) {
@@ -145,12 +140,17 @@ public class PresenceService {
             if (!frame.isEmpty()) {
                 floor.snapshot = floor.session.everyone();
                 frame.settled().forEach(s -> spaces.sat(floor.organizationId, floorId, s.userId(), s.tile()));
-                messages.convertAndSend("/topic/floors/" + floorId + "/frames", FrameMessage.of(frame));
+                if (!frame.moved().isEmpty() || !frame.left().isEmpty()) {
+                    messages.convertAndSend("/topic/floors/" + floorId + "/frames", FrameMessage.of(frame));
+                }
+                // A refused position goes back to its browser, which puts the avatar where the floor has it.
+                frame.corrected()
+                        .forEach(c -> messages.convertAndSendToUser(c.userId().toString(), "/queue/position", c));
                 events.publishEvent(new FloorTicked(
                         floor.organizationId,
                         floorId,
                         floor.snapshot.stream()
-                                .map(a -> new Standing(a.userId(), a.x(), a.y()))
+                                .map(a -> new Standing(a.userId(), (int) Math.floor(a.x()), (int) Math.floor(a.y())))
                                 .toList()));
             }
             // shortcut: an enter that races this removal is lost and the client re-enters on reconnect; fine on one

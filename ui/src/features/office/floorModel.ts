@@ -1,3 +1,4 @@
+import type { Ground, SeatFace } from './scene/walker';
 import type { FloorLayout, RoomKind } from './types';
 
 /** One decor item from the layout JSON; which fields are set depends on `t`. */
@@ -71,6 +72,30 @@ export type FloorModel = {
 const list = <T>(value: unknown): T[] => (Array.isArray(value) ? (value as T[]) : []);
 
 /** Turns an API layout into the shape the scene builders and the floor plan draw from. */
+/** Walkable floor and seats (chairs, sofas, armchairs), for walking and sitting like the prototype. */
+export function groundOf(f: FloorModel): Ground {
+  const seats = new Map<string, SeatFace>();
+  const face = (value: string | undefined) =>
+    value === 'up' || value === 'down' || value === 'left' || value === 'right' ? value : undefined;
+  for (const chair of f.chairs) {
+    const seat = face(chair.face);
+    if (seat) seats.set(`${chair.x},${chair.y}`, seat);
+  }
+  for (const item of f.items) {
+    const seat = face(item.face);
+    if (!seat) continue;
+    if (item.t === 'arm') seats.set(`${item.x},${item.y}`, seat);
+    if (item.t === 'sofa')
+      for (let x = item.x0; x <= item.x1; x++) seats.set(`${x},${item.y}`, seat);
+  }
+  return {
+    width: f.W,
+    height: f.H,
+    walkable: (x, y) => f.at(x, y) === '.',
+    seatAt: (x, y) => (f.at(x, y) === '.' ? seats.get(`${x},${y}`) : undefined),
+  };
+}
+
 export function floorModel(layout: FloorLayout, level: number): FloorModel {
   const { width: W, height: H, tiles, furniture } = layout;
   const at = (x: number, y: number) =>

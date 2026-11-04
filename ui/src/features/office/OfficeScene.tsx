@@ -10,16 +10,15 @@ export function OfficeScene({
   onOpenBuilding,
   onOpenFloor,
   onStudioUnavailable,
-  onWalk,
-  onStep,
+  onMove,
   meId,
 }: OfficeSceneProps) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const labels = useRef<HTMLDivElement>(null);
   const engine = useRef<OfficeEngine | null>(null);
-  const callbacks = useRef({ onOpenBuilding, onOpenFloor, onStudioUnavailable, onWalk, onStep });
+  const callbacks = useRef({ onOpenBuilding, onOpenFloor, onStudioUnavailable, onMove });
   useEffect(() => {
-    callbacks.current = { onOpenBuilding, onOpenFloor, onStudioUnavailable, onWalk, onStep };
+    callbacks.current = { onOpenBuilding, onOpenFloor, onStudioUnavailable, onMove };
   });
 
   useEffect(() => {
@@ -28,14 +27,14 @@ export function OfficeScene({
       onOpenBuilding: (id) => callbacks.current.onOpenBuilding(id),
       onOpenFloor: (id) => callbacks.current.onOpenFloor(id),
       onStudioUnavailable: () => callbacks.current.onStudioUnavailable(),
-      onWalk: (x, y) => callbacks.current.onWalk(x, y),
-      onStep: (dx, dy) => callbacks.current.onStep(dx, dy),
+      onMove: (pose) => callbacks.current.onMove(pose),
     });
     engine.current = created;
     onReady({
       rotate: (direction) => created.rotate(direction),
       zoomBy: (factor) => created.zoomBy(factor),
       lookAt: (x, z) => created.lookAt(x, z),
+      walkTo: (x, y) => created.walkTo(x, y),
     });
     return () => {
       created.dispose();
@@ -68,5 +67,5 @@ function describe(view: OfficeSceneProps['view']) {
     return '3D view of the campus. Use the campus card or a building label to go inside.';
   if (view.mode === 'building')
     return `3D view of ${view.building.name}, its floors stacked. Pick a floor from the list.`;
-  return `3D view of ${view.building.name}, ${view.floor.code} · ${view.floor.name}. Click the floor or use the arrow keys to walk.`;
+  return `3D view of ${view.building.name}, ${view.floor.code} · ${view.floor.name}. Click the floor or hold the arrow keys to walk; stop on a chair to sit.`;
 }

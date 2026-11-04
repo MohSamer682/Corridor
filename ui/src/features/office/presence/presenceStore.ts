@@ -1,14 +1,15 @@
 import { create } from 'zustand';
 
-/** A step on the server takes 200 ms; avatars glide over the same time. */
-export const STEP_MS = 200;
+/** Frames come ten times a second; other people glide from one to the next over about that long. */
+export const FRAME_MS = 110;
 
 export type Occupant = {
   userId: string;
   displayName: string;
   x: number;
   y: number;
-  facing: string;
+  /** Radians, 0 = facing south (down the screen's y). */
+  facing: number;
   moving: boolean;
 };
 export type AvatarState = Omit<Occupant, 'displayName'>;
@@ -17,7 +18,7 @@ export type FrameMessage = { moved: AvatarState[]; left: string[] };
 export type Person = {
   id: string;
   name: string;
-  facing: string;
+  facing: number;
   moving: boolean;
   from: { x: number; y: number };
   to: { x: number; y: number };
@@ -32,13 +33,16 @@ type PresenceState = {
   arrive: (occupants: Occupant[]) => void;
   applyFrame: (frame: FrameMessage, now?: number) => void;
   setConnected: (connected: boolean) => void;
+  /** The server refused where your browser walked you; `seq` changes each time. */
+  correction: { x: number; y: number; seq: number } | null;
+  correct: (x: number, y: number) => void;
   unnamed: () => string[];
   reset: () => void;
 };
 
 /** Where someone is drawn at `now`, sliding from the tile they left to the one they are stepping into. */
 export function positionAt(person: Person, now: number) {
-  const t = Math.min(1, Math.max(0, (now - person.since) / STEP_MS));
+  const t = Math.min(1, Math.max(0, (now - person.since) / FRAME_MS));
   return {
     x: person.from.x + (person.to.x - person.from.x) * t,
     y: person.from.y + (person.to.y - person.from.y) * t,
@@ -86,9 +90,12 @@ export const usePresenceStore = create<PresenceState>((set, get) => ({
       return { people, version: state.version + 1 };
     }),
   setConnected: (connected) => set({ connected }),
+  correction: null,
+  correct: (x, y) =>
+    set((state) => ({ correction: { x, y, seq: (state.correction?.seq ?? 0) + 1 } })),
   unnamed: () =>
     Object.values(get().people)
       .filter((person) => !person.name)
       .map((person) => person.id),
-  reset: () => set({ people: {}, connected: false, version: 0 }),
+  reset: () => set({ people: {}, connected: false, version: 0, correction: null }),
 }));

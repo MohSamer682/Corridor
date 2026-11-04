@@ -2,5 +2,5 @@ package com.corridor.office.presence.domain;
 
 import java.util.UUID;
 
-/** Where someone stands, or the tile they are stepping into while moving. Facing is N, S, E or W. */
-public record AvatarState(UUID userId, int x, int y, char facing, boolean moving) {}
+/** Where someone is, in tiles, which way they face (radians, 0 = south) and whether they are walking. */
+public record AvatarState(UUID userId, double x, double y, double facing, boolean moving) {}

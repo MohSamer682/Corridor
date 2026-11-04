@@ -5,7 +5,6 @@ import com.corridor.office.common.security.CurrentUser;
 import com.corridor.office.identity.UserDirectory;
 import com.corridor.office.presence.application.PresenceService;
 import com.corridor.office.presence.domain.AvatarState;
-import com.corridor.office.spaces.TileGrid.Tile;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -34,15 +33,13 @@ import org.springframework.web.bind.annotation.RestController;
 @SecurityRequirement(name = "bearerAuth")
 class PresenceController {
 
-    record WalkMessage(int x, int y) {}
-
-    record StepMessage(int dx, int dy) {}
+    record MoveMessage(double x, double y, double facing, boolean moving) {}
 
     record ErrorMessage(String code, String detail) {}
 
     record CountsView(Map<UUID, Integer> floors) {}
 
-    record OccupantView(UUID userId, String displayName, int x, int y, char facing, boolean moving) {}
+    record OccupantView(UUID userId, String displayName, double x, double y, double facing, boolean moving) {}
 
     private final PresenceService presence;
     private final UserDirectory directory;
@@ -63,14 +60,9 @@ class PresenceController {
         presence.enter(person(principal), floorId);
     }
 
-    @MessageMapping("/walk")
-    void walk(Principal principal, @Payload WalkMessage walk) {
-        presence.walk(person(principal), new Tile(walk.x(), walk.y()));
-    }
-
-    @MessageMapping("/step")
-    void step(Principal principal, @Payload StepMessage step) {
-        presence.step(person(principal), step.dx(), step.dy());
+    @MessageMapping("/move")
+    void move(Principal principal, @Payload MoveMessage move) {
+        presence.move(person(principal), move.x(), move.y(), move.facing(), move.moving());
     }
 
     @MessageMapping("/leave")

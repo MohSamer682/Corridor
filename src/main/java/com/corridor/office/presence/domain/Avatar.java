@@ -1,29 +1,23 @@
 package com.corridor.office.presence.domain;
 
 import com.corridor.office.spaces.TileGrid.Tile;
-import java.util.ArrayDeque;
-import java.util.Deque;
-import java.util.List;
 import java.util.UUID;
 
-/**
- * One person on a floor. While stepping they hold two tiles, the one they stand on and the one they are
- * entering, so nobody else can step into either (the prototype's rule).
- */
+/** One person on a floor, at a free position in tiles. */
 public final class Avatar {
 
     private final UUID userId;
-    private Tile tile;
-    private Tile next;
-    private int stepTicksLeft;
-    private final Deque<Tile> path = new ArrayDeque<>();
-    private int waitTicks;
+    private double x;
+    private double y;
+    private double facing;
+    private boolean moving;
+    private int quietTicks;
     private int stillTicks;
-    private char facing = 'S';
 
-    Avatar(UUID userId, Tile tile) {
+    Avatar(UUID userId, double x, double y) {
         this.userId = userId;
-        this.tile = tile;
+        this.x = x;
+        this.y = y;
     }
 
     public UUID userId() {
@@ -31,91 +25,43 @@ public final class Avatar {
     }
 
     public Tile tile() {
-        return tile;
+        return new Tile((int) Math.floor(x), (int) Math.floor(y));
     }
 
-    /** True while the person has somewhere left to go. */
-    public boolean walking() {
-        return next != null || !path.isEmpty();
+    public AvatarState state() {
+        return new AvatarState(userId, x, y, facing, moving);
     }
 
-    AvatarState state() {
-        var at = next != null ? next : tile;
-        return new AvatarState(userId, at.x(), at.y(), facing, next != null);
+    double x() {
+        return x;
     }
 
-    /** The tile planning starts from: where the person will be once the current step ends. */
-    Tile plannedFrom() {
-        return next != null ? next : tile;
+    double y() {
+        return y;
     }
 
-    List<Tile> held() {
-        return next == null ? List.of(tile) : List.of(tile, next);
+    /** Ticks since the last accepted position, which bounds how far the next one may be. */
+    int quietTicks() {
+        return quietTicks;
     }
 
-    void follow(List<Tile> route) {
-        path.clear();
-        path.addAll(route);
-        waitTicks = 0;
-    }
-
-    /** Swaps the route while waiting, without forgetting how long we have waited. */
-    void reroute(List<Tile> route) {
-        path.clear();
-        path.addAll(route);
-    }
-
-    Deque<Tile> path() {
-        return path;
-    }
-
-    boolean stepping() {
-        return next != null;
-    }
-
-    /** Counts down the current step; true when it lands on the next tile this tick. */
-    boolean advanceStep() {
-        if (next == null || --stepTicksLeft > 0) {
-            return false;
+    /** Takes a position; true when anything others can see changed. */
+    boolean moveTo(double toX, double toY, double toFacing, boolean walking) {
+        var changed = toX != x || toY != y || toFacing != facing || walking != moving;
+        x = toX;
+        y = toY;
+        facing = toFacing;
+        moving = walking;
+        quietTicks = 0;
+        if (changed) {
+            stillTicks = 0;
         }
-        tile = next;
-        next = null;
-        return true;
+        return changed;
     }
 
-    void startStep(Tile into, int ticks) {
-        facing = facingTowards(into);
-        next = into;
-        stepTicksLeft = ticks;
-        waitTicks = 0;
-        stillTicks = 0;
-    }
-
-    int waited() {
-        return ++waitTicks;
-    }
-
-    void stopWaiting() {
-        path.clear();
-        waitTicks = 0;
-    }
-
-    /** Counts ticks spent standing still; returns the new count. */
-    int standStill() {
-        return ++stillTicks;
-    }
-
-    void resetStillness() {
-        stillTicks = 0;
-    }
-
-    private char facingTowards(Tile into) {
-        if (into.x() > tile.x()) {
-            return 'E';
-        }
-        if (into.x() < tile.x()) {
-            return 'W';
-        }
-        return into.y() < tile.y() ? 'N' : 'S';
+    /** One tick passed; returns how long the person has stood still, or -1 while walking. */
+    int tick() {
+        quietTicks = Math.min(quietTicks + 1, 10);
+        return moving ? -1 : ++stillTicks;
     }
 }

@@ -96,10 +96,10 @@ export function OfficePage() {
   const location = useLocation();
   const walkTo = (location.state as { walkTo?: { x: number; y: number } } | null)?.walkTo;
   useEffect(() => {
-    if (!walkTo || !amHere) return;
-    presence.walk(walkTo.x, walkTo.y);
+    if (!walkTo || !amHere || !controls) return;
+    controls.walkTo(walkTo.x + 0.5, walkTo.y + 0.5);
     navigate(location.pathname, { replace: true, state: null });
-  }, [walkTo, amHere, presence, navigate, location.pathname]);
+  }, [walkTo, amHere, controls, navigate, location.pathname]);
 
   const view = useMemo<OfficeView | null>(() => {
     if (!campus.data || !target || layouts.isPending || layouts.isError) return null;
@@ -160,8 +160,7 @@ export function OfficePage() {
             onReady={setControls}
             onOpenBuilding={openBuilding}
             onOpenFloor={openFloor}
-            onWalk={presence.walk}
-            onStep={presence.step}
+            onMove={presence.move}
             meId={meId}
             onStudioUnavailable={() => {
               setStudioAvailable(false);

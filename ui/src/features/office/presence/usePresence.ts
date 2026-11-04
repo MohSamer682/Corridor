@@ -12,8 +12,8 @@ import {
 import { usePresenceStore, type FrameMessage, type Occupant } from './presenceStore';
 
 export type PresenceControls = {
-  walk: (x: number, y: number) => void;
-  step: (dx: number, dy: number) => void;
+  /** Reports where your browser has walked you; the server checks it. */
+  move: (pose: { x: number; y: number; facing: number; moving: boolean }) => void;
   /** Sends any STOMP message on the floor's connection; dropped while reconnecting. */
   send: (destination: string, body: object) => void;
 };
@@ -69,8 +69,7 @@ export function usePresence(floorId: string | null): PresenceControls {
         client.current.publish({ destination, body: JSON.stringify(body) });
     };
     return {
-      walk: (x, y) => send('/app/walk', { x, y }),
-      step: (dx, dy) => send('/app/step', { dx, dy }),
+      move: (pose) => send('/app/move', pose),
       send,
     };
   }, []);
@@ -93,6 +92,10 @@ function subscribe(stomp: Client, floorId: string): StompSubscription[] {
       useConversationStore.getState().addMessage(json<ChatMessage>(message.body)),
     ),
     stomp.subscribe('/user/queue/signals', (message) => emitSignal(json<Signal>(message.body))),
+    stomp.subscribe('/user/queue/position', (message) => {
+      const back = json<{ x: number; y: number }>(message.body);
+      usePresenceStore.getState().correct(back.x, back.y);
+    }),
   ];
 }
 
