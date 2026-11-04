@@ -124,6 +124,18 @@ class ConversationFlowIntegrationTest {
     }
 
     @Test
+    void shouldEndFocusModeWhenSomeoneLeavesTheOffice() {
+        stand(new Standing(nour.userId(), 40, 18), new Standing(nadia.userId(), 41, 18));
+        conversations.focus(nadia, true);
+
+        stand(new Standing(nour.userId(), 40, 18));
+        stand(new Standing(nour.userId(), 40, 18), new Standing(nadia.userId(), 41, 18));
+
+        assertThat(conversations.inFocus(nadia.userId())).isFalse();
+        assertThat(conversations.groupOf(nadia.userId())).isPresent();
+    }
+
+    @Test
     void shouldNeverDeliverToSomeoneInFocus() {
         stand(
                 new Standing(nour.userId(), 40, 18),

@@ -74,7 +74,12 @@ public class ConversationService {
             floor.everyone.stream()
                     .map(Standing::userId)
                     .filter(userId -> !here.contains(userId))
-                    .forEach(userId -> floorOf.remove(userId, tick.floorId()));
+                    .forEach(userId -> {
+                        // Leaving the office ends focus mode; walking to another floor keeps it.
+                        if (floorOf.remove(userId, tick.floorId())) {
+                            focused.remove(userId);
+                        }
+                    });
             floor.everyone = tick.everyone();
             regroup(floor);
         }
