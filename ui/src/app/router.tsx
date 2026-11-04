@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate, type RouteObject } from 'react-router';
 import { TeamsPage } from '../features/admin-users/TeamsPage';
+import { AttendancePage } from '../features/attendance/AttendancePage';
 import { AuditLogPage } from '../features/audit/AuditLogPage';
 import { OfficePage } from '../features/office/OfficePage';
 import { UsersPage } from '../features/admin-users/UsersPage';
@@ -25,6 +26,7 @@ export const routes: RouteObject[] = [
           { path: 'office/buildings/:buildingId', element: <OfficePage /> },
           { path: 'office/floors/:floorId', element: <OfficePage /> },
           { path: 'me', element: <ProfilePage /> },
+          { path: 'attendance', element: <AttendancePage /> },
           {
             element: <RequireRole roles={['ADMIN', 'HR']} />,
             children: [

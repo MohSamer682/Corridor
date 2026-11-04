@@ -75,8 +75,8 @@ it('explains why a sign-in failed', () => {
 });
 
 it('falls back to the action name for events this screen does not know yet', () => {
-  expect(describeEvent(event('attendance.punched_in', {}))).toMatchObject({
-    lead: 'attendance.punched_in',
+  expect(describeEvent(event('workspace.renamed', {}))).toMatchObject({
+    lead: 'workspace.renamed',
     kind: 'Other',
   });
 });

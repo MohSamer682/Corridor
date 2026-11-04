@@ -1,7 +1,10 @@
 package com.corridor.office.attendance.infrastructure;
 
+import com.corridor.office.attendance.domain.Span;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -12,6 +15,8 @@ import org.springframework.stereotype.Repository;
 public class PunchStore {
 
     public record Interval(Instant from, Instant to) {}
+
+    public record PersonSpan(UUID userId, Span span) {}
 
     private final JdbcClient jdbc;
 
@@ -48,6 +53,30 @@ public class PunchStore {
                         rs.getTimestamp("started_at").toInstant(),
                         rs.getTimestamp("ended_at").toInstant()))
                 .optional();
+    }
+
+    /** Finished and open punches of these people that started in [from, to). */
+    public List<PersonSpan> spans(UUID organizationId, Collection<UUID> people, Instant from, Instant to) {
+        return jdbc.sql(
+                        """
+                        SELECT user_id, started_at, ended_at FROM punches
+                        WHERE organization_id = :org AND user_id IN (:people) AND started_at >= :from AND started_at < :to
+                        UNION ALL
+                        SELECT user_id, started_at, NULL FROM open_punches
+                        WHERE organization_id = :org AND user_id IN (:people) AND started_at >= :from AND started_at < :to""")
+                .param("org", organizationId)
+                .param("people", people)
+                .param("from", Timestamp.from(from))
+                .param("to", Timestamp.from(to))
+                .query((rs, row) -> {
+                    var ended = rs.getTimestamp("ended_at");
+                    return new PersonSpan(
+                            rs.getObject("user_id", UUID.class),
+                            new Span(
+                                    rs.getTimestamp("started_at").toInstant(),
+                                    ended == null ? null : ended.toInstant()));
+                })
+                .list();
     }
 
     public Optional<Instant> openSince(UUID userId) {

@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.corridor.office.attendance.application.AttendanceQuery;
 import com.corridor.office.attendance.application.AttendanceService;
 import com.corridor.office.attendance.application.AttendanceService.PunchView;
 import com.corridor.office.common.domain.ConflictException;
@@ -37,6 +38,9 @@ class AttendanceControllerTest {
 
     @MockitoBean
     AttendanceService attendance;
+
+    @MockitoBean
+    AttendanceQuery days;
 
     @MockitoBean
     JwtDecoder jwtDecoder;

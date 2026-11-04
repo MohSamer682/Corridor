@@ -1,6 +1,6 @@
 import { roleLabels, type Role } from '../../shared/roles';
 
-export type Kind = 'People' | 'Teams' | 'Sign-in' | 'Other';
+export type Kind = 'People' | 'Teams' | 'Sign-in' | 'Attendance' | 'Other';
 
 /** Renders as `{lead} <b>{subject}</b>{tail}`, with `detail` on a second, quieter line. */
 export type EventDescription = {
@@ -22,6 +22,12 @@ const signInReasons: Record<string, string> = {
 
 const role = (value: string | undefined) => (value ? (roleLabels[value as Role] ?? value) : '');
 const change = (from: string, to: string) => `${from} → ${to}`;
+const clockFormat = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' });
+const clock = (iso: string | undefined) => (iso ? clockFormat.format(new Date(iso)) : '');
+const minutes = (value: string | undefined) => {
+  const total = Number(value ?? 0);
+  return `${Math.floor(total / 60)}h ${total % 60}m`;
+};
 
 export function describeEvent({ action, details }: DescribableEvent): EventDescription {
   const name = details.name ?? '';
@@ -59,6 +65,22 @@ export function describeEvent({ action, details }: DescribableEvent): EventDescr
       return teams('Changed the color of team');
     case 'team.deleted':
       return teams('Deleted team');
+    case 'attendance.punched_in':
+      return {
+        lead: 'Punched in',
+        subject: '',
+        tail: '',
+        detail: clock(details.at),
+        kind: 'Attendance',
+      };
+    case 'attendance.punched_out':
+      return {
+        lead: 'Punched out',
+        subject: '',
+        tail: '',
+        detail: `${clock(details.from)} – ${clock(details.to)} · ${minutes(details.minutes)}`,
+        kind: 'Attendance',
+      };
     case 'auth.login_failed':
       return {
         lead: 'Failed sign-in for',
