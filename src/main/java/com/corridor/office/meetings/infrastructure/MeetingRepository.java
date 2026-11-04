@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 
 public interface MeetingRepository extends JpaRepository<Meeting, UUID> {
@@ -32,6 +33,23 @@ public interface MeetingRepository extends JpaRepository<Meeting, UUID> {
             where m.organizationId = :organizationId and m.roomId = :roomId and m.startsAt < :to and m.endsAt > :from
             order by m.startsAt""")
     List<Meeting> inRoom(UUID organizationId, UUID roomId, Instant from, Instant to);
+
+    @Modifying
+    @Query(
+            """
+            update Meeting m set m.status = com.corridor.office.meetings.domain.MeetingStatus.LIVE
+            where m.status = com.corridor.office.meetings.domain.MeetingStatus.SCHEDULED
+              and m.startsAt <= :now and m.endsAt > :now""")
+    int start(Instant now);
+
+    @Modifying
+    @Query(
+            """
+            update Meeting m set m.status = com.corridor.office.meetings.domain.MeetingStatus.ENDED
+            where m.status in (com.corridor.office.meetings.domain.MeetingStatus.SCHEDULED,
+                               com.corridor.office.meetings.domain.MeetingStatus.LIVE)
+              and m.endsAt <= :now""")
+    int end(Instant now);
 
     @Query(
             "select m from Meeting m left join fetch m.attendees where m.id = :id and m.organizationId = :organizationId")

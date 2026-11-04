@@ -16,7 +16,7 @@ services:
       - '127.0.0.1:8025:8025'
   livekit:
     image: 'livekit/livekit-server'
-    command: --dev --bind 0.0.0.0
+    command: --dev --bind 0.0.0.0 --keys 'corridor: local-livekit-secret-0123456789abcdef'
     ports:
       - '127.0.0.1:7880:7880'
       - '127.0.0.1:7881:7881'
