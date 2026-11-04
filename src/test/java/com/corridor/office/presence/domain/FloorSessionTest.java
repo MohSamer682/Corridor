@@ -1,17 +1,14 @@
 package com.corridor.office.presence.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.corridor.office.presence.domain.MovementIntent.Enter;
 import com.corridor.office.presence.domain.MovementIntent.Leave;
-import com.corridor.office.presence.domain.MovementIntent.Step;
-import com.corridor.office.presence.domain.MovementIntent.WalkTo;
+import com.corridor.office.presence.domain.MovementIntent.Move;
 import com.corridor.office.spaces.TileGrid;
 import com.corridor.office.spaces.TileGrid.Tile;
 import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
+import java.util.Arrays;
 import java.util.Random;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -32,8 +29,18 @@ class FloorSessionTest {
         return last;
     }
 
-    private Tile tileOf(UUID person) {
-        return floor.avatar(person).orElseThrow().tile();
+    private AvatarState where(UUID person) {
+        return floor.avatar(person).orElseThrow().state();
+    }
+
+    private void move(UUID person, double x, double y) {
+        floor.submit(new Move(person, x, y, 0, true));
+    }
+
+    private static TileGrid openFloor(int width, int height) {
+        var open = "C" + ".".repeat(width - 2) + "C";
+        return TileGrid.parse(
+                width, height, "C".repeat(width) + open.repeat(height - 2) + "C".repeat(width), new Tile(1, 1));
     }
 
     @Test
@@ -43,188 +50,181 @@ class FloorSessionTest {
 
         var frame = floor.tick();
 
-        assertThat(tileOf(nour)).isEqualTo(ARRIVAL);
-        assertThat(tileOf(omar)).isEqualTo(new Tile(2, 1));
+        assertThat(where(nour).x()).isEqualTo(1.5);
+        assertThat(where(nour).y()).isEqualTo(1.5);
+        assertThat(where(omar).x()).isEqualTo(2.5);
         assertThat(frame.moved()).extracting(AvatarState::userId).containsExactly(nour, omar);
     }
 
     @Test
-    void shouldWalkThroughTheGapAroundTheWall() {
+    void shouldAcceptSmallMovesInAnyDirection() {
         floor.submit(new Enter(nour));
         floor.tick();
 
-        floor.submit(new WalkTo(nour, new Tile(1, 3)));
-        ticks(40);
-
-        assertThat(tileOf(nour)).isEqualTo(new Tile(1, 3));
-    }
-
-    @Test
-    void shouldTakeOneTileEveryTwoTicks() {
-        floor.submit(new Enter(nour));
-        floor.tick();
-        floor.submit(new WalkTo(nour, new Tile(3, 1)));
-
-        var first = floor.tick();
-        assertThat(first.moved()).singleElement().satisfies(state -> {
-            assertThat(state.x()).isEqualTo(2);
-            assertThat(state.moving()).isTrue();
-            assertThat(state.facing()).isEqualTo('E');
-        });
-        floor.tick();
-        assertThat(tileOf(nour)).isEqualTo(new Tile(1, 1));
-        floor.tick();
-        assertThat(tileOf(nour)).isEqualTo(new Tile(2, 1));
-        ticks(2);
-        assertThat(tileOf(nour)).isEqualTo(new Tile(3, 1));
-    }
-
-    @Test
-    void shouldRejectAWalkIntoAWall() {
-        floor.submit(new Enter(nour));
-        floor.tick();
-
-        assertThatThrownBy(() -> floor.submit(new WalkTo(nour, new Tile(1, 2))))
-                .isInstanceOf(InvalidMoveException.class);
-        assertThatThrownBy(() -> floor.submit(new WalkTo(nour, new Tile(40, 40))))
-                .isInstanceOf(InvalidMoveException.class);
-    }
-
-    @Test
-    void shouldNeverLetTwoPeopleHoldTheSameTile() {
-        floor.submit(new Enter(nour));
-        floor.submit(new Enter(omar));
-        floor.tick();
-        floor.submit(new WalkTo(omar, new Tile(3, 3)));
-        floor.submit(new WalkTo(nour, new Tile(3, 3)));
-
-        for (int i = 0; i < 60; i++) {
-            floor.tick();
-            assertThat(floor.heldTiles()).doesNotHaveDuplicates();
-        }
-        assertThat(List.of(tileOf(nour), tileOf(omar))).contains(new Tile(3, 3));
-    }
-
-    @Test
-    void shouldGiveUpWhenSomeoneStaysOnTheTarget() {
-        floor.submit(new Enter(nour));
-        floor.submit(new Enter(omar));
-        floor.tick();
-        floor.submit(new WalkTo(omar, new Tile(3, 2)));
-        ticks(10);
-        assertThat(tileOf(omar)).isEqualTo(new Tile(3, 2));
-
-        floor.submit(new WalkTo(nour, new Tile(3, 2)));
-        ticks(FloorSession.GIVE_UP_TICKS + 10);
-
-        assertThat(floor.avatar(nour).orElseThrow().walking()).isFalse();
-        assertThat(tileOf(nour)).isNotEqualTo(new Tile(3, 2));
-    }
-
-    @Test
-    void shouldStepOneTileWithTheKeyboardButNotIntoWalls() {
-        floor.submit(new Enter(nour));
-        floor.tick();
-
-        floor.submit(new Step(nour, 1, 0));
-        ticks(3);
-        floor.submit(new Step(nour, 0, 1));
-        ticks(3);
-
-        assertThat(tileOf(nour)).isEqualTo(new Tile(2, 1));
-    }
-
-    @Test
-    void shouldApplyIntentsInArrivalOrderOnTheTick() {
-        floor.submit(new Enter(nour));
-        floor.submit(new Leave(nour));
-
+        move(nour, 1.85, 1.65);
         var frame = floor.tick();
 
-        assertThat(floor.avatar(nour)).isEmpty();
-        assertThat(frame.left()).containsExactly(nour);
-        assertThat(floor.isEmpty()).isTrue();
+        assertThat(where(nour).x()).isEqualTo(1.85);
+        assertThat(where(nour).y()).isEqualTo(1.65);
+        assertThat(where(nour).moving()).isTrue();
+        assertThat(frame.moved()).extracting(AvatarState::userId).containsExactly(nour);
+        assertThat(frame.corrected()).isEmpty();
     }
 
     @Test
-    void shouldReportOnlyAvatarsThatMoved() {
+    void shouldPullBackAMoveIntoAWall() {
+        floor.submit(new Enter(nour));
+        floor.tick();
+
+        move(nour, 1.5, 2.2);
+        var frame = floor.tick();
+
+        assertThat(where(nour).y()).isEqualTo(1.5);
+        assertThat(frame.corrected()).extracting(AvatarState::userId).containsExactly(nour);
+    }
+
+    @Test
+    void shouldPullBackATeleport() {
+        floor.submit(new Enter(nour));
+        floor.tick();
+
+        move(nour, 5.5, 3.5);
+        var frame = floor.tick();
+
+        assertThat(where(nour).x()).isEqualTo(1.5);
+        assertThat(frame.corrected()).hasSize(1);
+    }
+
+    @Test
+    void shouldAllowLongerMovesAfterQuietTicks() {
+        floor.submit(new Enter(nour));
+        floor.tick();
+        ticks(5);
+
+        move(nour, 4.5, 1.5);
+        floor.tick();
+
+        assertThat(where(nour).x()).isEqualTo(4.5);
+    }
+
+    @Test
+    void shouldNeverLetTwoPeopleOverlap() {
         floor.submit(new Enter(nour));
         floor.submit(new Enter(omar));
         floor.tick();
 
-        floor.submit(new WalkTo(omar, new Tile(5, 1)));
+        move(omar, 1.9, 1.5);
         var frame = floor.tick();
 
-        assertThat(frame.moved()).extracting(AvatarState::userId).containsExactly(omar);
-        assertThat(ticks(60).moved()).isEmpty();
+        assertThat(where(omar).x()).isEqualTo(2.5);
+        assertThat(frame.corrected()).extracting(AvatarState::userId).containsExactly(omar);
+    }
+
+    @Test
+    void shouldLetSomeoneTooCloseStepAway() {
+        floor.submit(new Enter(nour));
+        floor.submit(new Enter(omar));
+        floor.tick();
+
+        move(omar, 2.7, 1.5);
+        floor.tick();
+
+        assertThat(where(omar).x()).isEqualTo(2.7);
     }
 
     @Test
     void shouldReportSettlingOnceAfterStandingStill() {
         floor.submit(new Enter(nour));
         floor.tick();
-        floor.submit(new WalkTo(nour, new Tile(5, 1)));
+        floor.submit(new Move(nour, 2.4, 1.6, 0, false));
 
         var settled = new ArrayList<Settled>();
-        for (int i = 0; i < FloorSession.SETTLE_TICKS + 40; i++)
+        for (int i = 0; i < FloorSession.SETTLE_TICKS + 5; i++)
             settled.addAll(floor.tick().settled());
 
-        assertThat(settled).containsExactly(new Settled(nour, new Tile(5, 1)));
+        assertThat(settled).containsExactly(new Settled(nour, new Tile(2, 1)));
     }
 
     @Test
-    void shouldKeepEveryoneOnTheirOwnTileWhileThirtyPeopleWander() {
-        var open = "C" + ".".repeat(18) + "C";
-        var grid = TileGrid.parse(20, 12, "C".repeat(20) + open.repeat(10) + "C".repeat(20), new Tile(1, 1));
-        var crowd = new FloorSession(grid);
+    void shouldReportOnlyAvatarsThatChanged() {
+        floor.submit(new Enter(nour));
+        floor.submit(new Enter(omar));
+        floor.tick();
+
+        move(nour, 1.6, 1.5);
+        var frame = floor.tick();
+
+        assertThat(frame.moved()).extracting(AvatarState::userId).containsExactly(nour);
+        assertThat(floor.tick().moved()).isEmpty();
+    }
+
+    @Test
+    void shouldForgetSomeoneWhoLeaves() {
+        floor.submit(new Enter(nour));
+        floor.tick();
+
+        floor.submit(new Leave(nour));
+        var frame = floor.tick();
+
+        assertThat(frame.left()).containsExactly(nour);
+        assertThat(floor.isEmpty()).isTrue();
+    }
+
+    @Test
+    void shouldKeepEveryoneApartWhileThirtyPeopleWander() {
+        var crowd = new FloorSession(openFloor(20, 12));
         var random = new Random(7);
         var people = new ArrayList<UUID>();
         for (int i = 0; i < 30; i++) {
-            var person = UUID.randomUUID();
-            people.add(person);
-            crowd.submit(new Enter(person));
+            people.add(UUID.randomUUID());
+            crowd.submit(new Enter(people.getLast()));
         }
+        crowd.tick();
         for (int tick = 0; tick < 2_000; tick++) {
-            if (tick % 5 == 0) {
-                var person = people.get(random.nextInt(people.size()));
-                crowd.submit(new WalkTo(person, new Tile(1 + random.nextInt(18), 1 + random.nextInt(10))));
+            for (var person : people) {
+                var at = crowd.avatar(person).orElseThrow().state();
+                var angle = random.nextDouble() * Math.PI * 2;
+                crowd.submit(
+                        new Move(person, at.x() + Math.cos(angle) * 0.4, at.y() + Math.sin(angle) * 0.4, angle, true));
             }
             crowd.tick();
-            var held = crowd.heldTiles();
-            assertThat(new HashSet<>(held)).hasSameSizeAs(held);
+            var everyone = crowd.everyone();
+            for (int i = 0; i < everyone.size(); i++) {
+                for (int j = i + 1; j < everyone.size(); j++) {
+                    var a = everyone.get(i);
+                    var b = everyone.get(j);
+                    assertThat(Math.hypot(a.x() - b.x(), a.y() - b.y()))
+                            .isGreaterThanOrEqualTo(FloorSession.MIN_GAP - 1e-9);
+                }
+            }
         }
     }
 
     @Test
     void shouldTickTwoHundredPeopleWellInsideTheTickBudget() {
-        var open = "C" + ".".repeat(58) + "C";
-        var grid = TileGrid.parse(60, 40, "C".repeat(60) + open.repeat(38) + "C".repeat(60), new Tile(1, 1));
-        var crowd = new FloorSession(grid);
+        var crowd = new FloorSession(openFloor(60, 40));
         var random = new Random(11);
         var people = new ArrayList<UUID>();
         for (int i = 0; i < 200; i++) {
             people.add(UUID.randomUUID());
             crowd.submit(new Enter(people.getLast()));
         }
+        crowd.tick();
         var times = new long[600];
-        var mostMoved = 0;
         for (int tick = 0; tick < times.length; tick++) {
-            // Everyone picks a new spot about every three seconds.
             for (var person : people) {
-                if (random.nextInt(30) == 0) {
-                    crowd.submit(new WalkTo(person, new Tile(1 + random.nextInt(58), 1 + random.nextInt(38))));
-                }
+                var at = crowd.avatar(person).orElseThrow().state();
+                var angle = random.nextDouble() * Math.PI * 2;
+                crowd.submit(
+                        new Move(person, at.x() + Math.cos(angle) * 0.5, at.y() + Math.sin(angle) * 0.5, angle, true));
             }
             var start = System.nanoTime();
-            var frame = crowd.tick();
+            crowd.tick();
             times[tick] = System.nanoTime() - start;
-            mostMoved = Math.max(mostMoved, frame.moved().size());
         }
-        java.util.Arrays.sort(times);
+        Arrays.sort(times);
         var p99 = times[times.length * 99 / 100] / 1_000_000.0;
-        System.out.printf(
-                "200 people: p99 tick %.2f ms, max %.2f ms, most moved in one frame %d%n",
-                p99, times[times.length - 1] / 1_000_000.0, mostMoved);
+        System.out.printf("200 people all moving: p99 tick %.2f ms%n", p99);
         // The tick runs every 100 ms; under a third of that leaves room for sending frames on a slow CI box.
         assertThat(p99).isLessThan(30.0);
     }

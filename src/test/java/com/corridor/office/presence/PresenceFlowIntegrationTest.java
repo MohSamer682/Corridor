@@ -93,6 +93,7 @@ class PresenceFlowIntegrationTest {
         var client = new Client(session, new LinkedBlockingQueue<>(), new LinkedBlockingQueue<>());
         session.subscribe("/topic/floors/" + floorId + "/frames", collect(client.frames()));
         session.subscribe("/user/queue/errors", collect(client.errors()));
+        session.subscribe("/user/queue/position", collect(client.errors()));
         return client;
     }
 
@@ -117,6 +118,22 @@ class PresenceFlowIntegrationTest {
                 .stream().anyMatch(state -> person.toString().equals(state.get("userId")));
     }
 
+    @SuppressWarnings("unchecked")
+    private static Map<String, Number> whereSeen(Client watcher, UUID person) throws InterruptedException {
+        for (var deadline = System.nanoTime() + Duration.ofSeconds(5).toNanos(); System.nanoTime() < deadline; ) {
+            var frame = watcher.frames().poll(200, TimeUnit.MILLISECONDS);
+            if (frame != null && movedBy(frame, person)) {
+                return ((List<Map<String, Object>>) frame.get("moved"))
+                        .stream()
+                                .filter(state -> person.toString().equals(state.get("userId")))
+                                .map(state -> Map.of("x", (Number) state.get("x"), "y", (Number) state.get("y")))
+                                .findFirst()
+                                .orElseThrow();
+            }
+        }
+        return null;
+    }
+
     private static boolean sawMove(Client watcher, UUID person) throws InterruptedException {
         for (var deadline = System.nanoTime() + Duration.ofSeconds(5).toNanos(); System.nanoTime() < deadline; ) {
             var frame = watcher.frames().poll(200, TimeUnit.MILLISECONDS);
@@ -135,9 +152,22 @@ class PresenceFlowIntegrationTest {
 
         nour.session().send("/app/floors/" + floorId + "/enter", "");
         omar.session().send("/app/floors/" + floorId + "/enter", "");
-        assertThat(sawMove(nour, omarId)).isTrue();
+        var arrived = whereSeen(nour, omarId);
+        assertThat(arrived).isNotNull();
 
-        omar.session().send("/app/walk", Map.of("x", 25, "y", 21));
+        // A small diagonal step north-west from wherever Omar arrived; the floor around the lift is open.
+        omar.session()
+                .send(
+                        "/app/move",
+                        Map.of(
+                                "x",
+                                arrived.get("x").doubleValue() - 0.2,
+                                "y",
+                                arrived.get("y").doubleValue() - 0.25,
+                                "facing",
+                                3.9,
+                                "moving",
+                                true));
 
         assertThat(sawMove(nour, omarId)).isTrue();
         nour.session().disconnect();
@@ -145,7 +175,7 @@ class PresenceFlowIntegrationTest {
     }
 
     @Test
-    void shouldTellPeopleWhenTheyTryToWalkIntoAWall() throws Exception {
+    void shouldPutPeopleBackWhenTheyReportAnImpossiblePosition() throws Exception {
         var nour = connect("nour@corridor.local");
         nour.session().send("/app/floors/" + floorId + "/enter", "");
         // STOMP messages from one client may be handled on different threads; wait until the entry lands.
@@ -154,10 +184,11 @@ class PresenceFlowIntegrationTest {
                         users.findByEmail("nour@corridor.local").orElseThrow().id()))
                 .isTrue();
 
-        nour.session().send("/app/walk", Map.of("x", 0, "y", 0));
+        nour.session().send("/app/move", Map.of("x", 0.5, "y", 0.5, "facing", 0, "moving", true));
 
-        var error = nour.errors().poll(5, TimeUnit.SECONDS);
-        assertThat(error).containsEntry("detail", "You can't walk there.");
+        var correction = nour.errors().poll(5, TimeUnit.SECONDS);
+        assertThat(correction).isNotNull();
+        assertThat(((Number) correction.get("x")).doubleValue()).isGreaterThan(20);
         nour.session().disconnect();
     }
 
