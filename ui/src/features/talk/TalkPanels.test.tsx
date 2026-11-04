@@ -76,15 +76,14 @@ it('explains a blocked microphone and offers to try again', async () => {
   expect(controls.retry).toHaveBeenCalled();
 });
 
-it('says voice stops at four people', () => {
+it('keeps the same controls when a big group talks through the media server', () => {
   useConversationStore
     .getState()
-    .setGroup({ groupId: 'g1', members: [me, nour, 'c', 'd', 'e'], route: 'TOO_BIG' });
+    .setGroup({ groupId: 'g1', members: [me, nour, 'c', 'd', 'e'], route: 'SFU' });
   render(<CallPanel call={call()} me={me} />);
 
-  expect(screen.getByRole('status')).toHaveTextContent(
-    'Voice works for up to 4 people here. Use a meeting room for bigger groups.',
-  );
+  expect(screen.getByRole('button', { name: 'Mute' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Leave' })).toBeInTheDocument();
 });
 
 it('sends chat and reads it out politely', async () => {

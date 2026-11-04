@@ -26,7 +26,7 @@ const initials = (name: string) =>
     .slice(0, 2)
     .toUpperCase() || '?';
 
-function Tile({
+export function Tile({
   name,
   stream,
   connected,
@@ -97,20 +97,6 @@ export function CallPanel({ call, me }: { call: Call; me: string }) {
   const names = useNames();
   if (!group) return null;
   const others = group.members.filter((id) => id !== me);
-  if (group.route === 'TOO_BIG')
-    return (
-      <section
-        aria-label="Call"
-        className={`${panel} right-3 bottom-3 left-3 flex flex-col gap-2 p-2.5 sm:left-auto sm:w-[300px]`}
-      >
-        <p
-          role="status"
-          className="m-0 rounded-[9px] bg-[#F6EAD4] px-2.5 py-2 text-[13px] text-[#7A5216]"
-        >
-          Voice works for up to 4 people here. Use a meeting room for bigger groups.
-        </p>
-      </section>
-    );
   return (
     <section
       aria-label="Call"

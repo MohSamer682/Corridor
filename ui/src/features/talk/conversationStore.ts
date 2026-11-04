@@ -4,7 +4,7 @@ import { create } from 'zustand';
 export type GroupMessage = {
   groupId: string | null;
   members: string[];
-  route: 'PEER_TO_PEER' | 'TOO_BIG' | null;
+  route: 'PEER_TO_PEER' | 'SFU' | null;
 };
 export type ChatMessage = { id: string; senderId: string; body: string; createdAt: string };
 export type Signal = { from: string; kind: 'offer' | 'answer' | 'candidate'; payload: string };

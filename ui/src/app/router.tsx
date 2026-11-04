@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate, type RouteObject } from 'react-router';
 import { TeamsPage } from '../features/admin-users/TeamsPage';
 import { AttendancePage } from '../features/attendance/AttendancePage';
 import { AuditLogPage } from '../features/audit/AuditLogPage';
+import { MeetingsPage } from '../features/meetings/MeetingsPage';
 import { OfficePage } from '../features/office/OfficePage';
 import { UsersPage } from '../features/admin-users/UsersPage';
 import { LoginPage } from '../features/auth/LoginPage';
@@ -27,6 +28,7 @@ export const routes: RouteObject[] = [
           { path: 'office/floors/:floorId', element: <OfficePage /> },
           { path: 'me', element: <ProfilePage /> },
           { path: 'attendance', element: <AttendancePage /> },
+          { path: 'meetings', element: <MeetingsPage /> },
           {
             element: <RequireRole roles={['ADMIN', 'HR']} />,
             children: [

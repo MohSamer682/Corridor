@@ -93,6 +93,58 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/meetings': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Your meetings, organized or invited, that overlap [from, to) */
+    get: operations['list_2'];
+    put?: never;
+    /** Book a room for a meeting; the same Idempotency-Key books once */
+    post: operations['schedule'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/meetings/{meetingId}/token': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** A LiveKit token to join a meeting: invitees only, from 10 minutes before it starts */
+    post: operations['join'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/meetings/{meetingId}/cancellation': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Cancel a meeting and free its room (organizer only) */
+    post: operations['cancel'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/me/punch-out': {
     parameters: {
       query?: never;
@@ -232,6 +284,23 @@ export interface paths {
     patch: operations['update_1'];
     trace?: never;
   };
+  '/api/v1/meetings/{meetingId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Change a meeting's room, time, title or invitees (organizer only) */
+    patch: operations['reschedule'];
+    trace?: never;
+  };
   '/api/v1/presence/counts': {
     parameters: {
       query?: never;
@@ -258,6 +327,57 @@ export interface paths {
     };
     /** Every private office in your company and who has it (HR and admins) */
     get: operations['offices'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/meeting-rooms': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Rooms meetings can be booked in, by building, floor and name */
+    get: operations['rooms'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/meeting-rooms/{roomId}/meetings': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** What is booked in a room during [from, to) */
+    get: operations['inRoom'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/meeting-invitees': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** People in your company you can invite, by name */
+    get: operations['invitees'];
     put?: never;
     post?: never;
     delete?: never;
@@ -359,7 +479,7 @@ export interface paths {
       cookie?: never;
     };
     /** Rooms and open areas on a floor, with how many seats each has */
-    get: operations['rooms'];
+    get: operations['rooms_1'];
     put?: never;
     post?: never;
     delete?: never;
@@ -436,6 +556,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/conversations/media': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** A LiveKit token for your conversation, when it has five or more people */
+    get: operations['join_1'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/campus': {
     parameters: {
       query?: never;
@@ -461,7 +598,7 @@ export interface paths {
       cookie?: never;
     };
     /** List audit events, newest first (admins and HR) */
-    get: operations['list_2'];
+    get: operations['list_3'];
     put?: never;
     post?: never;
     delete?: never;
@@ -581,6 +718,40 @@ export interface components {
       /** Format: int64 */
       version?: number;
     };
+    ScheduleMeeting: {
+      /** Format: uuid */
+      roomId?: string;
+      title?: string;
+      /** Format: date-time */
+      startsAt?: string;
+      /** Format: int32 */
+      minutes?: number;
+      invitees?: string[];
+    };
+    MeetingView: {
+      /** Format: uuid */
+      id?: string;
+      title?: string;
+      /** Format: uuid */
+      roomId?: string;
+      roomName?: string;
+      place?: string;
+      /** Format: uuid */
+      floorId?: string;
+      /** Format: date-time */
+      startsAt?: string;
+      /** Format: date-time */
+      endsAt?: string;
+      /** @enum {string} */
+      status?: 'SCHEDULED' | 'LIVE' | 'ENDED' | 'CANCELLED';
+      /** Format: uuid */
+      organizerId?: string;
+      attendees?: string[];
+    };
+    Join: {
+      url?: string;
+      token?: string;
+    };
     PunchView: {
       punchedIn?: boolean;
       /** Format: date-time */
@@ -670,6 +841,22 @@ export interface components {
       place?: string;
       /** Format: uuid */
       ownerId?: string;
+    };
+    BookableRoom: {
+      /** Format: uuid */
+      id?: string;
+      name?: string;
+      /** Format: uuid */
+      floorId?: string;
+      place?: string;
+    };
+    Member: {
+      /** Format: uuid */
+      userId?: string;
+      displayName?: string;
+      /** Format: uuid */
+      teamId?: string;
+      teamName?: string;
     };
     IceServer: {
       urls?: string[];
@@ -1187,6 +1374,153 @@ export interface operations {
       };
     };
   };
+  list_2: {
+    parameters: {
+      query: {
+        from: string;
+        to: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Meetings by start time */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['MeetingView'][];
+        };
+      };
+    };
+  };
+  schedule: {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ScheduleMeeting'];
+      };
+    };
+    responses: {
+      /** @description Booked */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['MeetingView'];
+        };
+      };
+      /** @description Not a meeting or conference room of your company */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['MeetingView'];
+        };
+      };
+      /** @description The room is booked then; the detail names the other meeting */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['MeetingView'];
+        };
+      };
+      /** @description Title, time, length or invitees break the rules */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['MeetingView'];
+        };
+      };
+    };
+  };
+  join: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        meetingId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Where to connect and the token */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['Join'];
+        };
+      };
+      /** @description You're not invited to this meeting. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['Join'];
+        };
+      };
+      /** @description Too early, ended or cancelled */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['Join'];
+        };
+      };
+    };
+  };
+  cancel: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        meetingId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Cancelled */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['ApiResult'];
+        };
+      };
+      /** @description Not the organizer */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['ApiResult'];
+        };
+      };
+    };
+  };
   punchOut: {
     parameters: {
       query?: never;
@@ -1607,6 +1941,50 @@ export interface operations {
       };
     };
   };
+  reschedule: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        meetingId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ScheduleMeeting'];
+      };
+    };
+    responses: {
+      /** @description Saved */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['MeetingView'];
+        };
+      };
+      /** @description Not the organizer */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['MeetingView'];
+        };
+      };
+      /** @description The new slot clashes, or the meeting is over */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['MeetingView'];
+        };
+      };
+    };
+  };
   counts: {
     parameters: {
       query?: never;
@@ -1652,6 +2030,71 @@ export interface operations {
         };
         content: {
           '*/*': components['schemas']['OfficeSlot'][];
+        };
+      };
+    };
+  };
+  rooms: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Meeting and conference rooms */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['BookableRoom'][];
+        };
+      };
+    };
+  };
+  inRoom: {
+    parameters: {
+      query: {
+        from: string;
+        to: string;
+      };
+      header?: never;
+      path: {
+        roomId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Bookings by start time */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['MeetingView'][];
+        };
+      };
+    };
+  };
+  invitees: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Active people with their team */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['Member'][];
         };
       };
     };
@@ -1768,7 +2211,7 @@ export interface operations {
       };
     };
   };
-  rooms: {
+  rooms_1: {
     parameters: {
       query?: never;
       header?: never;
@@ -1916,6 +2359,35 @@ export interface operations {
       };
     };
   };
+  join_1: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Where to connect and the token */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['Join'];
+        };
+      };
+      /** @description Your conversation talks peer to peer, or you're in none */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['Join'];
+        };
+      };
+    };
+  };
   campus: {
     parameters: {
       query?: never;
@@ -1936,7 +2408,7 @@ export interface operations {
       };
     };
   };
-  list_2: {
+  list_3: {
     parameters: {
       query?: {
         action?: string;
