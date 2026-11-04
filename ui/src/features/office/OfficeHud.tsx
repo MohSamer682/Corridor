@@ -98,12 +98,15 @@ export function ViewTools({
   studioAvailable,
   controls,
   onChange,
+  focus,
 }: {
   mode: 'campus' | 'building' | 'floor';
   tools: Tools;
   studioAvailable: boolean;
   controls: OfficeControls | null;
   onChange: (tools: Tools) => void;
+  /** On a floor: focus mode and how to switch it. */
+  focus?: { on: boolean; toggle: () => void };
 }) {
   const toggle = (key: keyof Tools) => onChange({ ...tools, [key]: !tools[key] });
   return (
@@ -135,6 +138,13 @@ export function ViewTools({
             <span className="sr-only sm:hidden">Whole floor</span>
           </button>
         </>
+      )}
+      {mode === 'floor' && focus && (
+        <button type="button" className={hudButton} aria-pressed={focus.on} onClick={focus.toggle}>
+          <Icon d="M12 3a9 9 0 1 0 9 9M12 7a5 5 0 1 0 5 5M12 11a1 1 0 1 0 1 1" />
+          <span className="hidden sm:inline">Focus mode</span>
+          <span className="sr-only sm:hidden">Focus mode</span>
+        </button>
       )}
       {studioAvailable && (
         <button

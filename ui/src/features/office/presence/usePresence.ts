@@ -1,27 +1,37 @@
-import { Client } from '@stomp/stompjs';
+import { Client, type StompSubscription } from '@stomp/stompjs';
 import { useEffect, useMemo, useRef } from 'react';
 import { apiClient, refreshOnce } from '../../../shared/api/apiClient';
 import { useSessionStore } from '../../auth/sessionStore';
+import {
+  emitSignal,
+  useConversationStore,
+  type ChatMessage,
+  type GroupMessage,
+  type Signal,
+} from '../../talk/conversationStore';
 import { usePresenceStore, type FrameMessage, type Occupant } from './presenceStore';
 
 export type PresenceControls = {
   walk: (x: number, y: number) => void;
   step: (dx: number, dy: number) => void;
+  /** Sends any STOMP message on the floor's connection; dropped while reconnecting. */
+  send: (destination: string, body: object) => void;
 };
 
 const socketUrl = () => `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`;
 
 /**
  * While a floor is open: keeps one STOMP connection, enters the floor, and feeds frames into the presence
- * store. Reconnects on its own; each connect asks for a fresh access token first.
+ * store, and conversation updates into the conversation store. Reconnects on its own; each connect asks for
+ * a fresh access token first.
  */
 export function usePresence(floorId: string | null): PresenceControls {
   const client = useRef<Client | null>(null);
 
   useEffect(() => {
     if (!floorId) return undefined;
-    const store = usePresenceStore.getState();
-    store.reset();
+    usePresenceStore.getState().reset();
+    useConversationStore.getState().reset();
     const stomp = new Client({
       brokerURL: socketUrl(),
       reconnectDelay: 2000,
@@ -35,12 +45,10 @@ export function usePresence(floorId: string | null): PresenceControls {
       },
       onConnect: () => {
         usePresenceStore.getState().setConnected(true);
-        stomp.subscribe(`/topic/floors/${floorId}/frames`, (message) => {
-          usePresenceStore.getState().applyFrame(JSON.parse(message.body) as FrameMessage);
-          if (usePresenceStore.getState().unnamed().length) void loadOccupants(floorId);
-        });
+        subscribe(stomp, floorId);
         stomp.publish({ destination: `/app/floors/${floorId}/enter` });
         void loadOccupants(floorId);
+        void loadFocus(floorId);
       },
       onWebSocketClose: () => usePresenceStore.getState().setConnected(false),
     });
@@ -51,6 +59,7 @@ export function usePresence(floorId: string | null): PresenceControls {
       void stomp.deactivate();
       client.current = null;
       usePresenceStore.getState().reset();
+      useConversationStore.getState().reset();
     };
   }, [floorId]);
 
@@ -62,8 +71,29 @@ export function usePresence(floorId: string | null): PresenceControls {
     return {
       walk: (x, y) => send('/app/walk', { x, y }),
       step: (dx, dy) => send('/app/step', { dx, dy }),
+      send,
     };
   }, []);
+}
+
+function subscribe(stomp: Client, floorId: string): StompSubscription[] {
+  const json = <T>(body: string) => JSON.parse(body) as T;
+  return [
+    stomp.subscribe(`/topic/floors/${floorId}/frames`, (message) => {
+      usePresenceStore.getState().applyFrame(json<FrameMessage>(message.body));
+      if (usePresenceStore.getState().unnamed().length) void loadOccupants(floorId);
+    }),
+    stomp.subscribe(`/topic/floors/${floorId}/focus`, (message) =>
+      useConversationStore.getState().setFocused(json<{ focused: string[] }>(message.body).focused),
+    ),
+    stomp.subscribe('/user/queue/conversation', (message) =>
+      useConversationStore.getState().setGroup(json<GroupMessage>(message.body)),
+    ),
+    stomp.subscribe('/user/queue/messages', (message) =>
+      useConversationStore.getState().addMessage(json<ChatMessage>(message.body)),
+    ),
+    stomp.subscribe('/user/queue/signals', (message) => emitSignal(json<Signal>(message.body))),
+  ];
 }
 
 async function loadOccupants(floorId: string) {
@@ -71,4 +101,11 @@ async function loadOccupants(floorId: string) {
     () => [],
   );
   usePresenceStore.getState().arrive(occupants);
+}
+
+async function loadFocus(floorId: string) {
+  const view = await apiClient<{ focused: string[] }>(`/api/v1/floors/${floorId}/focus`).catch(
+    () => ({ focused: [] }),
+  );
+  useConversationStore.getState().setFocused(view.focused);
 }

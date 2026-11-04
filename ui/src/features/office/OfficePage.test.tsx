@@ -3,12 +3,14 @@ import userEvent from '@testing-library/user-event';
 import { useSessionStore } from '../auth/sessionStore';
 import { stubApi, tokenResponse } from '../../test/fetchStub';
 import { renderApp, resetSession } from '../../test/renderApp';
+import { useConversationStore } from '../talk/conversationStore';
 import { usePresenceStore } from './presence/presenceStore';
 import { hasWebGL } from './webgl';
 
 vi.mock('./webgl', () => ({ hasWebGL: vi.fn(() => true) }));
 const walk = vi.fn();
-vi.mock('./presence/usePresence', () => ({ usePresence: () => ({ walk, step: vi.fn() }) }));
+const send = vi.fn();
+vi.mock('./presence/usePresence', () => ({ usePresence: () => ({ walk, step: vi.fn(), send }) }));
 vi.mock('./OfficeScene', () => ({
   OfficeScene: ({ view }: { view: { mode: string } }) => <div data-testid="scene">{view.mode}</div>,
 }));
@@ -74,6 +76,8 @@ beforeEach(() => {
   desk = null;
   walk.mockReset();
   usePresenceStore.getState().reset();
+  useConversationStore.getState().reset();
+  send.mockReset();
   signInAs('EMPLOYEE');
   vi.mocked(hasWebGL).mockReturnValue(true);
 });
@@ -208,4 +212,33 @@ it('greets the first person on a floor and says when the connection drops', asyn
 
   usePresenceStore.getState().setConnected(false);
   expect(await screen.findByText('Reconnecting…')).toBeInTheDocument();
+});
+
+it('explains focus mode, yours and someone else’s, and switches it from the toolbar', async () => {
+  serveCampus();
+  renderApp('/office/floors/l1');
+  await screen.findByTestId('scene');
+  const me = useSessionStore.getState().user!.id!;
+  usePresenceStore.getState().setConnected(true);
+  usePresenceStore.getState().arrive([
+    { userId: me, displayName: 'Me', x: 1, y: 1, facing: 'S', moving: false },
+    { userId: 'nadia', displayName: 'Nadia Fahmy', x: 2, y: 1, facing: 'S', moving: false },
+  ]);
+  expect(await screen.findByText('Walk close to a teammate to start talking.')).toBeInTheDocument();
+
+  useConversationStore.getState().setFocused(['nadia']);
+  expect(
+    await screen.findByText("Nadia is in focus mode. They can't be interrupted right now."),
+  ).toBeInTheDocument();
+
+  await user.click(screen.getByRole('button', { name: /^Focus mode/ }));
+  expect(send).toHaveBeenCalledWith('/app/conversations/focus', { on: true });
+  useConversationStore.getState().setFocused(['nadia', me]);
+  expect(
+    await screen.findByText('Focus mode on. Nobody can call or message you.'),
+  ).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /^Focus mode/ })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
 });

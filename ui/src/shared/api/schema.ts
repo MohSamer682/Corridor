@@ -232,6 +232,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/media/ice-servers': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** STUN and TURN servers for calls; TURN credentials last 10 minutes */
+    get: operations['iceServers'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/me': {
     parameters: {
       query?: never;
@@ -309,6 +326,40 @@ export interface paths {
     };
     /** Who is on a floor right now, and where */
     get: operations['occupants'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/floors/{floorId}/messages': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Chat you received on a floor, newest first, 50 at a time */
+    get: operations['history'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/floors/{floorId}/focus': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Who is in focus mode on a floor right now */
+    get: operations['focused'];
     put?: never;
     post?: never;
     delete?: never;
@@ -509,6 +560,16 @@ export interface components {
       /** Format: uuid */
       ownerId?: string;
     };
+    IceServer: {
+      urls?: string[];
+      username?: string;
+      credential?: string;
+    };
+    IceServers: {
+      iceServers?: components['schemas']['IceServer'][];
+      /** Format: date-time */
+      expiresAt?: string;
+    };
     MyDesk: {
       /** Format: uuid */
       floorId?: string;
@@ -592,6 +653,22 @@ export interface components {
       y?: number;
       facing?: string;
       moving?: boolean;
+    };
+    CursorResponseMessageView: {
+      items?: components['schemas']['MessageView'][];
+      nextCursor?: string;
+    };
+    MessageView: {
+      /** Format: uuid */
+      id?: string;
+      /** Format: uuid */
+      senderId?: string;
+      body?: string;
+      /** Format: date-time */
+      createdAt?: string;
+    };
+    FocusView: {
+      focused?: string[];
     };
     BuildingView: {
       /** Format: uuid */
@@ -1352,6 +1429,26 @@ export interface operations {
       };
     };
   };
+  iceServers: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Pass iceServers to RTCPeerConnection as is */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['IceServers'];
+        };
+      };
+    };
+  };
   me: {
     parameters: {
       query?: never;
@@ -1499,6 +1596,52 @@ export interface operations {
         };
         content: {
           '*/*': components['schemas']['OccupantView'][];
+        };
+      };
+    };
+  };
+  history: {
+    parameters: {
+      query?: {
+        before?: string;
+      };
+      header?: never;
+      path: {
+        floorId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Messages; pass nextCursor as before for older ones */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['CursorResponseMessageView'];
+        };
+      };
+    };
+  };
+  focused: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        floorId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description User ids of people in focus */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['FocusView'];
         };
       };
     };
