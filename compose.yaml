@@ -21,3 +21,10 @@ services:
       - '127.0.0.1:7880:7880'
       - '127.0.0.1:7881:7881'
       - '127.0.0.1:7882:7882/udp'
+  coturn:
+    image: 'coturn/coturn'
+    command: -n --use-auth-secret --static-auth-secret=local-turn-secret --realm=corridor.local --listening-port=3478 --min-port=49160 --max-port=49200 --no-tls --no-dtls
+    ports:
+      - '127.0.0.1:3478:3478'
+      - '127.0.0.1:3478:3478/udp'
+      - '127.0.0.1:49160-49200:49160-49200/udp'

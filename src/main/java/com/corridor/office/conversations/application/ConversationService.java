@@ -3,6 +3,7 @@ package com.corridor.office.conversations.application;
 import com.corridor.office.common.security.CurrentUser;
 import com.corridor.office.conversations.domain.ConversationGroups;
 import com.corridor.office.conversations.domain.Group;
+import com.corridor.office.conversations.domain.MediaRoute;
 import com.corridor.office.conversations.domain.Spot;
 import com.corridor.office.presence.events.FloorTicked;
 import com.corridor.office.presence.events.FloorTicked.Standing;
@@ -27,8 +28,11 @@ import org.springframework.stereotype.Service;
 @Service
 public class ConversationService {
 
-    /** Sent to a person whenever their group changes; {@code groupId} is null when they are in none. */
-    public record GroupView(UUID groupId, List<UUID> members) {}
+    /**
+     * Sent to a person whenever their group changes; {@code groupId} is null when they are in none. {@code route}
+     * says how voice travels: PEER_TO_PEER, or TOO_BIG for chat only.
+     */
+    public record GroupView(UUID groupId, List<UUID> members, String route) {}
 
     /** Who is in focus on a floor, so walking up to them can explain why nothing happens. */
     public record FocusView(List<UUID> focused) {}
@@ -141,7 +145,12 @@ public class ConversationService {
             var before = floor.groupOf.get(userId);
             var after = next.get(userId);
             if (before == null || after == null || !before.id().equals(after.id())) {
-                var view = after == null ? new GroupView(null, List.of()) : new GroupView(after.id(), after.members());
+                var view = after == null
+                        ? new GroupView(null, List.of(), null)
+                        : new GroupView(
+                                after.id(),
+                                after.members(),
+                                MediaRoute.forGroup(after).name());
                 sockets.convertAndSendToUser(userId.toString(), "/queue/conversation", view);
             }
         }
