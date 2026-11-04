@@ -6,6 +6,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { floorModel, type FloorModel } from '../floorModel';
 import { usePresenceStore } from '../presence/presenceStore';
+import { useConversationStore } from '../../talk/conversationStore';
 import type { OfficeView, Tools } from '../types';
 import { PITCH, clampZoom, targetScale, type CameraMode } from './camera';
 import { AvatarLayer } from './avatars';
@@ -83,7 +84,12 @@ export class OfficeEngine {
     this.labelLayer = labelLayer;
     this.callbacks = callbacks;
     this.avatars = new AvatarLayer(this.avatarTags);
-    this.unsubscribe = usePresenceStore.subscribe(() => this.wake(400));
+    const stopPresence = usePresenceStore.subscribe(() => this.wake(400));
+    const stopTalk = useConversationStore.subscribe(() => this.wake(400));
+    this.unsubscribe = () => {
+      stopPresence();
+      stopTalk();
+    };
     this.renderer = new THREE.WebGLRenderer({
       canvas,
       antialias: true,

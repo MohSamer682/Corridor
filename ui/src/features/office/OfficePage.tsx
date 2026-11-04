@@ -13,6 +13,10 @@ import {
 } from './OfficeHud';
 import { usePresenceStore } from './presence/presenceStore';
 import { usePresence } from './presence/usePresence';
+import { useConversationStore } from '../talk/conversationStore';
+import { CallPanel, ChatPanel } from '../talk/TalkPanels';
+import { useTalkHint } from '../talk/useTalk';
+import { usePeerConnections } from '../talk/usePeerConnections';
 import type { Building, Campus, FloorSummary, OfficeControls, OfficeView, Tools } from './types';
 import { useCampus, useFloorLayouts, useMyDesk, usePresenceCounts } from './useOffice';
 import { hasWebGL } from './webgl';
@@ -71,6 +75,10 @@ export function OfficePage() {
     (state) => state.version > 0 && Object.keys(state.people).length === 1,
   );
   const amHere = usePresenceStore((state) => (meId ? Boolean(state.people[meId]) : false));
+  const group = useConversationStore((state) => state.group);
+  const inFocus = useConversationStore((state) => (meId ? state.focused.includes(meId) : false));
+  const call = usePeerConnections(group, meId, presence.send);
+  const talkHint = useTalkHint(meId);
   // "Go to my desk" opens the floor, then walks there once you have arrived.
   const location = useLocation();
   const walkTo = (location.state as { walkTo?: { x: number; y: number } } | null)?.walkTo;
@@ -160,6 +168,10 @@ export function OfficePage() {
           studioAvailable={studioAvailable}
           controls={controls}
           onChange={setTools}
+          focus={{
+            on: inFocus,
+            toggle: () => presence.send('/app/conversations/focus', { on: !inFocus }),
+          }}
         />
         {target.mode === 'campus' && (
           <CampusCard
@@ -178,13 +190,23 @@ export function OfficePage() {
             counts={counts}
           />
         )}
-        {view.mode === 'floor' && (
+        {view.mode === 'floor' && meId && (
+          <>
+            <ChatPanel
+              me={meId}
+              onSend={(body) => presence.send('/app/conversations/messages', { body })}
+            />
+            <CallPanel call={call} me={meId} />
+          </>
+        )}
+        {view.mode === 'floor' && !group && (
           <Minimap layout={view.layout} level={view.floor.level} controls={controls} />
         )}
         {target.mode === 'floor' && everConnected && !connected && <Reconnecting />}
-        {target.mode === 'floor' && connected && alone && (
+        {target.mode === 'floor' && connected && alone && !talkHint && (
           <Hint>You're the first one on this floor.</Hint>
         )}
+        {target.mode === 'floor' && connected && talkHint && !group && <Hint>{talkHint}</Hint>}
         {target.mode !== 'floor' && (
           <Hint>
             {target.mode === 'campus'

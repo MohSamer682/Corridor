@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { positionAt, STEP_MS, usePresenceStore, type Person } from '../presence/presenceStore';
+import { useConversationStore } from '../../talk/conversationStore';
 import { FACE, M, RB } from './core';
 
 /* People on the floor, built like the prototype's avatars; looks come from a hash of the user id. */
@@ -36,8 +37,21 @@ type Body = {
   armL: THREE.Object3D;
   armR: THREE.Object3D;
   tag: HTMLElement;
+  /** Glass dome while someone is in focus mode. */
+  dome: THREE.Object3D;
+  /** Green ring under everyone in your conversation. */
+  ring: THREE.Object3D;
   walk: number;
 };
+
+const DOME = new THREE.MeshPhysicalMaterial({
+  color: '#8FB0E0',
+  transparent: true,
+  opacity: 0.28,
+  roughness: 0.1,
+  depthWrite: false,
+});
+const RING = new THREE.MeshBasicMaterial({ color: '#3FBF8A', transparent: true, opacity: 0.85 });
 
 type Shapes = {
   leg: THREE.BufferGeometry;
@@ -45,6 +59,8 @@ type Shapes = {
   torso: THREE.BufferGeometry;
   head: THREE.BufferGeometry;
   cap: THREE.BufferGeometry;
+  dome: THREE.BufferGeometry;
+  ring: THREE.BufferGeometry;
 };
 let shapes: Shapes | null = null;
 function geometry(): Shapes {
@@ -66,6 +82,8 @@ function geometry(): Shapes {
     ),
     head: new THREE.SphereGeometry(0.165, 20, 16),
     cap: new THREE.SphereGeometry(0.175, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.52),
+    dome: new THREE.SphereGeometry(0.62, 24, 14, 0, Math.PI * 2, 0, Math.PI / 2),
+    ring: new THREE.RingGeometry(0.42, 0.5, 32).rotateX(-Math.PI / 2),
   };
   return shapes;
 }
@@ -99,7 +117,12 @@ function build(person: Person, isMe: boolean, labels: HTMLElement): Body {
     : `${TAG} bg-[rgba(20,27,45,.84)] text-[#F3F5F9]`;
   tag.innerHTML = '<i class="size-[7px] rounded-full bg-[#3FBF8A]"></i><span></span>';
   labels.append(tag);
-  return { group, legL, legR, armL, armR, tag, walk: 0 };
+  const dome = new THREE.Mesh(g.dome, DOME);
+  const ring = new THREE.Mesh(g.ring, RING);
+  ring.position.y = 0.02;
+  dome.visible = ring.visible = false;
+  group.add(dome, ring);
+  return { group, legL, legR, armL, armR, tag, dome, ring, walk: 0 };
 }
 
 /** Keeps one avatar per person on the floor in step with the presence store. */
@@ -126,6 +149,7 @@ export class AvatarLayer {
   /** Moves everyone; true while someone is still gliding, so the view keeps drawing. */
   update(now: number, dt: number, camera: THREE.Camera, width: number, height: number) {
     const people = usePresenceStore.getState().people;
+    const talk = useConversationStore.getState();
     let moving = false;
     for (const [id, body] of this.bodies) {
       if (!people[id]) {
@@ -154,6 +178,8 @@ export class AvatarLayer {
       const bob = gliding ? Math.abs(Math.sin(body.walk * 12)) * 0.035 : 0;
       body.group.position.set(at.x + 0.5, bob, at.y + 0.5);
       body.group.rotation.y = FACE[FACING[person.facing] ?? 'down'] ?? 0;
+      body.dome.visible = talk.focused.includes(person.id);
+      body.ring.visible = Boolean(talk.group?.members.includes(person.id));
       v.set(at.x + 0.5, 1.48, at.y + 0.5).project(camera);
       body.tag.style.transform = `translate(${((v.x + 1) / 2) * width}px,${((1 - v.y) / 2) * height}px) translate(-50%,-100%)`;
       const label = body.tag.lastChild as HTMLElement;
