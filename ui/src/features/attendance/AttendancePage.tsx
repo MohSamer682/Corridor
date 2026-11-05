@@ -4,7 +4,9 @@ import { useSessionStore } from '../auth/sessionStore';
 import { useTeams } from '../admin-users/usePeople';
 import { Alert } from '../../shared/ui/Alert';
 import { clock, dayName, duration } from './format';
-import { today, useMyWeek, useTeamDay, type WorkDay } from './useAttendance';
+import { DayBar } from './DayBar';
+import { today, useMyPunch, useMyWeek, usePunch, useTeamDay, type WorkDay } from './useAttendance';
+import { stopwatch, useTicker } from './useTicker';
 
 const field =
   'h-11 rounded-[10px] border border-field-line bg-field px-3.5 text-ink focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-signal focus-visible:outline-none';
@@ -88,34 +90,38 @@ export function AttendancePage() {
 
 function MyWeek() {
   const week = useMyWeek();
+  const now = useTicker(Boolean(week.data?.some((d) => d.inNow)), 30_000);
   if (week.isError)
     return <Alert tone="danger">We couldn’t load your attendance. Try again.</Alert>;
   const days = week.data ?? [];
+  const today = days[0];
+  const past = days.slice(today && today.day === todayDate() ? 1 : 0);
   const worked = days.reduce((sum, d) => sum + d.workedMinutes, 0);
   const late = days.reduce((sum, d) => sum + d.lateMinutes, 0);
   const working = days.filter((d) => d.status !== 'WEEKEND' && d.status !== 'NOT_IN_YET');
   const present = working.filter((d) => d.status === 'PRESENT').length;
   return (
     <>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <TodayPanel day={today?.day === todayDate() ? today : undefined} now={now} />
+      <dl className="m-0 flex flex-wrap gap-x-8 gap-y-2 text-sm">
         {(
           [
             ['Worked this week', duration(worked)],
-            ['Late this week', duration(late)],
+            ['Late this week', late ? duration(late) : 'Never'],
             ['Days present', `${present} of ${working.length}`],
           ] as const
         ).map(([label, value]) => (
-          <div key={label} className="rounded-[14px] border border-line bg-surface px-[18px] py-4">
-            <span className="block text-[13px] text-muted">{label}</span>
-            <b className="font-display text-[26px] tracking-[-0.02em] tabular-nums">{value}</b>
+          <div key={label} className="flex items-baseline gap-2">
+            <dt className="text-muted">{label}</dt>
+            <dd className="m-0 font-semibold tabular-nums">{value}</dd>
           </div>
         ))}
-      </div>
+      </dl>
       <ul className="m-0 list-none rounded-[14px] border border-line bg-surface p-0">
-        {days.map((day) => (
+        {past.map((day) => (
           <li
             key={day.day}
-            className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-3 last:border-b-0"
+            className="grid grid-cols-1 items-center gap-x-6 gap-y-2 border-b border-line px-5 py-3.5 last:border-b-0 sm:grid-cols-[270px_minmax(0,1fr)_auto]"
           >
             <div>
               <b className="block">{dayName(day.day)}</b>
@@ -125,11 +131,81 @@ function MyWeek() {
                   : 'No attendance for this day.'}
               </span>
             </div>
+            {day.intervals.length ? (
+              <DayBar intervals={day.intervals} now={now} />
+            ) : (
+              <span className="hidden sm:block" />
+            )}
             <StatusBadge day={day} />
           </li>
         ))}
       </ul>
     </>
+  );
+}
+
+const todayDate = () => new Date().toLocaleDateString('en-CA');
+
+/** Today on its own: where you stand right now, the day so far as a strip, and the one thing to do next. */
+function TodayPanel({ day, now }: { day: WorkDay | undefined; now: number }) {
+  const status = useMyPunch();
+  const punch = usePunch();
+  const tick = useTicker(Boolean(status.data?.punchedIn));
+  const punchedIn = Boolean(status.data?.punchedIn && status.data.since);
+  const since = status.data?.since;
+  const worked = status.data?.workedTodayMinutes ?? day?.workedMinutes ?? 0;
+  const state =
+    punchedIn && since
+      ? `You’re in since ${clock(since)}.`
+      : worked > 0
+        ? `You’re out. ${duration(worked)} worked today.`
+        : 'You haven’t punched in today.';
+  return (
+    <section
+      aria-labelledby="today-title"
+      className="grid gap-5 rounded-[14px] border border-line bg-surface p-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+    >
+      <div className="flex min-w-0 flex-col gap-3">
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h2
+            id="today-title"
+            className="m-0 font-display text-[22px] font-bold tracking-[-0.02em]"
+          >
+            Today
+          </h2>
+          <span className="text-muted">{dayName(todayDate())}</span>
+          {day && <StatusBadge day={day} />}
+        </div>
+        <p className="m-0 flex flex-wrap items-baseline gap-x-3" aria-live="polite">
+          <span>{state}</span>
+          {punchedIn && since && (
+            <span className="font-display text-[28px] leading-none font-semibold tracking-[-0.02em] tabular-nums">
+              {stopwatch(tick - Date.parse(since))}
+            </span>
+          )}
+        </p>
+        <DayBar intervals={day?.intervals ?? []} now={now} size="lg" />
+      </div>
+      <div className="flex flex-col items-stretch gap-2 sm:items-end">
+        <button
+          type="button"
+          disabled={punch.isPending || !status.data}
+          onClick={() => punch.mutate(punchedIn ? 'out' : 'in')}
+          className={`inline-flex h-12 min-w-[150px] cursor-pointer items-center justify-center rounded-[10px] px-5 font-semibold transition-shadow duration-150 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-default disabled:opacity-70 ${
+            punchedIn
+              ? 'border border-line bg-surface text-ink hover:bg-field'
+              : 'border-0 bg-accent text-accent-ink hover:shadow-[0_6px_16px_rgba(35,57,93,.25)]'
+          }`}
+        >
+          {punch.isPending ? 'Saving…' : punchedIn ? 'Punch out' : 'Punch in'}
+        </button>
+        {punch.error && (
+          <span role="alert" className="text-sm text-danger-ink">
+            {punch.error.detail ?? 'That didn’t go through. Try again.'}
+          </span>
+        )}
+      </div>
+    </section>
   );
 }
 

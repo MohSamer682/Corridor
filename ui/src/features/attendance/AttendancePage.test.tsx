@@ -53,13 +53,17 @@ it('punches in and out from the top bar, once per press', async () => {
   }, true);
   renderApp('/attendance');
 
-  await user.click(await screen.findByRole('button', { name: 'Punch in' }));
-  expect(await screen.findByText(/^Punched in at/)).toBeInTheDocument();
+  const bar = await screen.findByRole('banner');
+  await user.click(await within(bar).findByRole('button', { name: 'Punch in' }));
+  expect(await within(bar).findByText(/^In since/)).toBeInTheDocument();
+  expect(within(bar).getByText(/^\d+:\d\d:\d\d$/)).toBeInTheDocument();
   const punchIn = fetchCalls().find((call) => call.url === '/api/v1/me/punch-in');
   expect(new Headers(punchIn?.init.headers).get('Idempotency-Key')).toMatch(/^[0-9a-f-]{36}$/);
 
-  await user.click(screen.getByRole('button', { name: 'Punch out' }));
-  expect(await screen.findByText(/You worked 8h 12m today\.$/)).toBeInTheDocument();
+  await user.click(within(bar).getByRole('button', { name: 'Punch out' }));
+  expect(await within(bar).findByRole('status')).toHaveTextContent(
+    /Punched out at \d\d:\d\d\.You worked 8h 12m today\./,
+  );
 });
 
 it('shows my week with late minutes, intervals, absences and weekends', async () => {
@@ -85,6 +89,7 @@ it('shows my week with late minutes, intervals, absences and weekends', async ()
   expect(screen.getByText('Weekend')).toBeInTheDocument();
   expect(screen.getAllByText('No attendance for this day.')).toHaveLength(2);
   expect(screen.getByText('Days present')).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Today' })).toBeInTheDocument();
   expect(screen.getByText('1 of 2')).toBeInTheDocument();
 });
 

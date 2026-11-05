@@ -12,17 +12,20 @@ test('punches in, survives a reload, punches out and sees the day', async ({ pag
   await expect(page.getByRole('heading', { name: 'My attendance' })).toBeVisible();
 
   // A run that stopped half way may have left Omar punched in.
-  const out = page.getByRole('button', { name: 'Punch out' });
+  const bar = page.getByRole('banner');
+  const out = bar.getByRole('button', { name: 'Punch out' });
   if (await out.isVisible().catch(() => false)) await out.click();
-  await page.getByRole('button', { name: 'Punch in' }).click();
-  await expect(page.getByText(/^Punched in at \d\d:\d\d\.$/)).toBeVisible();
+  await bar.getByRole('button', { name: 'Punch in' }).click();
+  await expect(bar.getByText(/^In since \d\d:\d\d$/)).toBeVisible();
 
   await page.reload();
-  await expect(page.getByText(/^Punched in at \d\d:\d\d\.$/)).toBeVisible();
-  await page.getByRole('button', { name: 'Punch out' }).click();
+  await expect(bar.getByText(/^In since \d\d:\d\d$/)).toBeVisible();
+  await expect(page.getByText(/^You’re in since \d\d:\d\d\.$/)).toBeVisible();
+  await bar.getByRole('button', { name: 'Punch out' }).click();
 
-  await expect(page.getByText(/^Punched out at \d\d:\d\d\. You worked .+ today\.$/)).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Punch in' })).toBeVisible();
+  await expect(bar.getByRole('status')).toContainText(/Punched out at \d\d:\d\d\./);
+  await expect(bar.getByRole('status')).toContainText(/You worked .+ today\.|under a minute/);
+  await expect(bar.getByRole('button', { name: 'Punch in' })).toBeVisible();
 });
 
 test('lets HR see the whole company', async ({ page }) => {
