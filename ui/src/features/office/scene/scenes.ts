@@ -38,7 +38,7 @@ export type WallMeshes = {
 export type BuiltScene = {
   scene: THREE.Scene;
   fit: Fit;
-  /** Meshes that open something when clicked; `userData.target` holds the building or floor id. */
+  /** Meshes that open something when clicked; `userData.target` holds the building or floor id, or 'board'. */
   pick: THREE.Object3D[];
   anchors: Anchor[];
   /** Per-frame hover effects. */
@@ -453,6 +453,7 @@ function addScreen(
     );
     parent.add(frame);
   }
+  return mesh;
 }
 
 function wallSpec(s: WallSpec, depth = 0.03) {
@@ -589,7 +590,14 @@ export function buildFloorScene(
     wc: paintLiftSign,
     jira: paintBoard,
   };
-  for (const s of signs) addScreen(decor, { ...s, transparent: s.key === 'logo' }, painters[s.key]);
+  const pick: THREE.Object3D[] = [];
+  for (const s of signs) {
+    const mesh = addScreen(decor, { ...s, transparent: s.key === 'logo' }, painters[s.key]);
+    if (s.key === 'jira') {
+      mesh.userData.target = 'board';
+      pick.push(mesh);
+    }
+  }
   const roomNames = new Map([...f.rooms, ...f.areas].map((r) => [r.key, r.name]));
   for (const s of f.screens) {
     const w = wallSpec(s);
@@ -643,7 +651,7 @@ export function buildFloorScene(
   return {
     scene,
     fit: { cx: f.W / 2, cy: 0, cz: f.H / 2, w: f.W, d: f.H, h: 2 },
-    pick: [],
+    pick,
     anchors: [],
     floorView: true,
     setCutaway: (on) => {

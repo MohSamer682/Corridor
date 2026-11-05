@@ -69,6 +69,8 @@ export type OfficeSceneProps = {
   onReady: (controls: OfficeControls) => void;
   onOpenBuilding: (buildingId: string) => void;
   onOpenFloor: (floorId: string) => void;
+  /** On a floor: the sprint board was clicked. */
+  onOpenBoard: () => void;
   onStudioUnavailable: () => void;
   /** On a floor: where your browser has walked you, to send to the server. */
   onMove: (pose: { x: number; y: number; facing: number; moving: boolean }) => void;

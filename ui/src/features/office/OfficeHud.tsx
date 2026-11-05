@@ -99,6 +99,7 @@ export function ViewTools({
   controls,
   onChange,
   focus,
+  onBoard,
 }: {
   mode: 'campus' | 'building' | 'floor';
   tools: Tools;
@@ -107,6 +108,8 @@ export function ViewTools({
   onChange: (tools: Tools) => void;
   /** On a floor: focus mode and how to switch it. */
   focus?: { on: boolean; toggle: () => void };
+  /** On a floor: opens the sprint board. */
+  onBoard?: () => void;
 }) {
   const toggle = (key: keyof Tools) => onChange({ ...tools, [key]: !tools[key] });
   return (
@@ -144,6 +147,13 @@ export function ViewTools({
           <Icon d="M12 3a9 9 0 1 0 9 9M12 7a5 5 0 1 0 5 5M12 11a1 1 0 1 0 1 1" />
           <span className="hidden sm:inline">Focus mode</span>
           <span className="sr-only sm:hidden">Focus mode</span>
+        </button>
+      )}
+      {mode === 'floor' && onBoard && (
+        <button type="button" className={hudButton} onClick={onBoard}>
+          <Icon d="M4 4h16v16H4zM9 4v16M15 4v16" />
+          <span className="hidden sm:inline">Sprint board</span>
+          <span className="sr-only sm:hidden">Sprint board</span>
         </button>
       )}
       {studioAvailable && (

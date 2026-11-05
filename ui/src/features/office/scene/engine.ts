@@ -18,6 +18,8 @@ import { buildCampus, buildFloorScene, buildStack, type BuiltScene } from './sce
 export type EngineCallbacks = {
   onOpenBuilding: (id: string) => void;
   onOpenFloor: (id: string) => void;
+  /** On a floor: someone clicked the sprint board. */
+  onOpenBoard: () => void;
   onStudioUnavailable: () => void;
   /** Where your browser walked you, at most ten times a second and once when you stop. */
   onMove: (pose: Pose) => void;
@@ -492,8 +494,12 @@ export class OfficeEngine {
   }
 
   private readonly onPointerMove = (event: PointerEvent) => {
-    if (!this.active || this.active.floorView) return;
+    if (!this.active) return;
     const hovered = this.pick(event);
+    if (this.active.floorView) {
+      this.canvas.style.cursor = hovered ? 'pointer' : 'grab';
+      return;
+    }
     if (hovered !== this.hovered) this.wake();
     this.hovered = hovered;
     this.canvas.style.cursor = this.hovered ? 'pointer' : 'grab';
@@ -513,11 +519,12 @@ export class OfficeEngine {
     this.downAt = null;
     if (!down || !this.active || this.flight) return;
     if (Math.hypot(event.clientX - down[0], event.clientY - down[1]) > 8) return;
+    const id = this.pick(event);
     if (this.active.floorView) {
-      this.walkToClick(event);
+      if (id === 'board') this.callbacks.onOpenBoard();
+      else this.walkToClick(event);
       return;
     }
-    const id = this.pick(event);
     if (!id) return;
     const open = () =>
       this.mode === 'campus' ? this.callbacks.onOpenBuilding(id) : this.callbacks.onOpenFloor(id);

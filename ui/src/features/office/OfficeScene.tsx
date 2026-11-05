@@ -9,6 +9,7 @@ export function OfficeScene({
   onReady,
   onOpenBuilding,
   onOpenFloor,
+  onOpenBoard,
   onStudioUnavailable,
   onMove,
   meId,
@@ -16,9 +17,15 @@ export function OfficeScene({
   const canvas = useRef<HTMLCanvasElement>(null);
   const labels = useRef<HTMLDivElement>(null);
   const engine = useRef<OfficeEngine | null>(null);
-  const callbacks = useRef({ onOpenBuilding, onOpenFloor, onStudioUnavailable, onMove });
+  const callbacks = useRef({
+    onOpenBuilding,
+    onOpenFloor,
+    onOpenBoard,
+    onStudioUnavailable,
+    onMove,
+  });
   useEffect(() => {
-    callbacks.current = { onOpenBuilding, onOpenFloor, onStudioUnavailable, onMove };
+    callbacks.current = { onOpenBuilding, onOpenFloor, onOpenBoard, onStudioUnavailable, onMove };
   });
 
   useEffect(() => {
@@ -26,6 +33,7 @@ export function OfficeScene({
     const created = new OfficeEngine(canvas.current, labels.current, {
       onOpenBuilding: (id) => callbacks.current.onOpenBuilding(id),
       onOpenFloor: (id) => callbacks.current.onOpenFloor(id),
+      onOpenBoard: () => callbacks.current.onOpenBoard(),
       onStudioUnavailable: () => callbacks.current.onStudioUnavailable(),
       onMove: (pose) => callbacks.current.onMove(pose),
     });
@@ -67,5 +75,5 @@ function describe(view: OfficeSceneProps['view']) {
     return '3D view of the campus. Use the campus card or a building label to go inside.';
   if (view.mode === 'building')
     return `3D view of ${view.building.name}, its floors stacked. Pick a floor from the list.`;
-  return `3D view of ${view.building.name}, ${view.floor.code} · ${view.floor.name}. Click the floor or hold the arrow keys to walk; stop on a chair to sit.`;
+  return `3D view of ${view.building.name}, ${view.floor.code} · ${view.floor.name}. Click the floor or hold the arrow keys to walk; stop on a chair to sit. The Sprint board button opens the team's board.`;
 }

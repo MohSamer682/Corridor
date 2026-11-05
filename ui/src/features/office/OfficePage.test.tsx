@@ -71,12 +71,14 @@ function signInAs(role: 'ADMIN' | 'EMPLOYEE') {
 }
 
 let desk: unknown = null;
+let board: unknown = null;
 
 function serveCampus(body: unknown = campus, status = 200) {
   stubApi((_method, url) => {
     if (url.includes('/layout')) return [200, layout];
     if (url.includes('/presence/counts')) return [200, { floors: { l1: 4, g: 1 } }];
     if (url.includes('/me/desk')) return [200, { desk }];
+    if (url === '/api/v1/board') return [200, board];
     return [status, body];
   });
 }
@@ -84,6 +86,7 @@ function serveCampus(body: unknown = campus, status = 200) {
 beforeEach(() => {
   resetSession();
   desk = null;
+  board = null;
   walk.mockReset();
   usePresenceStore.getState().reset();
   useConversationStore.getState().reset();
@@ -251,4 +254,67 @@ it('explains focus mode, yours and someone else’s, and switches it from the to
     'aria-pressed',
     'true',
   );
+});
+
+const card = (key: string, summary: string) => ({
+  key,
+  summary,
+  status: 'In Progress',
+  type: 'Story',
+  priority: 'High',
+  assignee: 'Nour Hassan',
+  storyPoints: 5,
+  url: `https://corridor.atlassian.net/browse/${key}`,
+});
+
+it('opens the sprint board from the floor and says when Jira is unreachable', async () => {
+  board = {
+    projectKey: 'COR',
+    siteUrl: 'https://corridor.atlassian.net',
+    syncedAt: new Date(Date.now() - 4 * 60_000).toISOString(),
+    stale: true,
+    columns: [
+      { name: 'To Do', cards: [card('COR-4', 'Command center')] },
+      { name: 'In Progress', cards: [card('COR-1', 'Punch clock shows a live timer')] },
+      { name: 'In Review', cards: [] },
+      { name: 'Done', cards: [] },
+    ],
+  };
+  serveCampus();
+  renderApp('/office/floors/l1');
+  await screen.findByTestId('scene');
+
+  await user.click(screen.getByRole('button', { name: /^Sprint board/ }));
+  const dialog = await screen.findByRole('dialog', { name: 'COR sprint board' });
+
+  expect(
+    within(dialog).getByText('Jira is unreachable. Showing the board from 4 minutes ago.'),
+  ).toBeInTheDocument();
+  const columns = within(dialog).getAllByRole('region');
+  expect(columns.map((c) => c.getAttribute('aria-label'))).toEqual([
+    'To Do, 1 issue',
+    'In Progress, 1 issue',
+    'In Review, no issues',
+    'Done, no issues',
+  ]);
+  expect(within(columns[1]!).getByRole('link', { name: /COR-1/ })).toHaveAttribute(
+    'href',
+    'https://corridor.atlassian.net/browse/COR-1',
+  );
+  expect(within(columns[1]!).getByText('Nour Hassan · 5 pts')).toBeInTheDocument();
+});
+
+it('says when Jira is not connected yet', async () => {
+  serveCampus();
+  renderApp('/office/floors/l1');
+  await screen.findByTestId('scene');
+
+  await user.click(screen.getByRole('button', { name: /^Sprint board/ }));
+
+  const dialog = await screen.findByRole('dialog', { name: 'Sprint board' });
+  expect(
+    await within(dialog).findByText(
+      "Jira isn't connected yet. An admin can connect it on the Jira page.",
+    ),
+  ).toBeInTheDocument();
 });
