@@ -51,7 +51,7 @@ class AnnouncementController {
 
     @GetMapping("/api/v1/announcements/unread")
     @Operation(summary = "Announcements for you that you haven't dismissed, from the last 7 days")
-    @ApiResponse(responseCode = "200", description = "Oldest first")
+    @ApiResponse(responseCode = "200", description = "Newest first")
     List<AnnouncementView> unread(@AuthenticationPrincipal Jwt jwt) {
         return announcements.unread(CurrentUser.from(jwt));
     }

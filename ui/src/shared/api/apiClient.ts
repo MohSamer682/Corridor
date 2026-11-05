@@ -47,5 +47,7 @@ function send(path: string, init: RequestInit): Promise<Response> {
 
 async function parse<T>(response: Response): Promise<T> {
   if (!response.ok) throw await ProblemError.from(response);
+  // 204 No Content (nothing to show, e.g. no town hall is live) reads as null.
+  if (response.status === 204) return null as T;
   return (await response.json()) as T;
 }

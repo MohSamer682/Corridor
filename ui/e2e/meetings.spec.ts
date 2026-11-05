@@ -31,7 +31,10 @@ async function book(page: Page, title: string, start: Date) {
   return sheet;
 }
 
-test('books a room, refuses the same slot, meets now and joins over LiveKit', async ({ page, browser }) => {
+test('books a room, refuses the same slot, meets now and joins over LiveKit', async ({
+  page,
+  browser,
+}) => {
   // A fresh quarter hour soon enough that Join is open, unique per run in minutes since the epoch.
   const start = new Date(Date.now() + 5 * 60_000);
   start.setMinutes(Math.ceil(start.getMinutes() / 15) * 15, 0, 0);

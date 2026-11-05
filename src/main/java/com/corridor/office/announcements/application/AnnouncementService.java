@@ -79,7 +79,7 @@ public class AnnouncementService {
         return new Sent(id, audience.size(), online);
     }
 
-    /** What the person has not dismissed yet, from the last 7 days, oldest first. */
+    /** What the person has not dismissed yet, from the last 7 days, newest first. */
     @Transactional(readOnly = true)
     public List<AnnouncementView> unread(CurrentUser reader) {
         return jdbc.sql(
@@ -90,7 +90,7 @@ public class AnnouncementService {
                           AND (a.team_id IS NULL OR a.team_id = :team)
                           AND NOT EXISTS (SELECT 1 FROM announcement_reads r
                                           WHERE r.announcement_id = a.id AND r.user_id = :me)
-                        ORDER BY a.created_at, a.id""")
+                        ORDER BY a.created_at DESC, a.id DESC""")
                 .param("org", reader.organizationId())
                 .param("since", Timestamp.from(clock.instant().minusSeconds(7 * 24 * 3600)))
                 .param("team", teamOf(reader))
