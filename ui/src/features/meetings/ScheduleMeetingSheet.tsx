@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Alert } from '../../shared/ui/Alert';
 import { Sheet } from '../../shared/ui/Sheet';
 import { useSessionStore } from '../auth/sessionStore';
-import { useInvitees, useMeetingRooms, useSchedule } from './useMeetings';
+import { useInvitees, useMeetingRooms, useSchedule, type Meeting } from './useMeetings';
 
 const field =
   'h-11 w-full rounded-[10px] border border-field-line bg-field px-3.5 text-ink focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-signal focus-visible:outline-none aria-[invalid=true]:border-danger-ink';
@@ -28,7 +28,16 @@ function nextQuarter() {
   };
 }
 
-export function ScheduleMeetingSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function ScheduleMeetingSheet({
+  open,
+  onClose,
+  onStarted,
+}: {
+  open: boolean;
+  onClose: () => void;
+  /** A meeting booked to start now, to join straight away. */
+  onStarted: (meeting: Meeting) => void;
+}) {
   return (
     <Sheet
       open={open}
@@ -36,12 +45,26 @@ export function ScheduleMeetingSheet({ open, onClose }: { open: boolean; onClose
       title="Schedule a meeting"
       description="Everyone you invite sees it on their Meetings page."
     >
-      {open && <ScheduleForm onDone={onClose} />}
+      {open && (
+        <ScheduleForm
+          onDone={onClose}
+          onStarted={(meeting) => {
+            onClose();
+            onStarted(meeting);
+          }}
+        />
+      )}
     </Sheet>
   );
 }
 
-function ScheduleForm({ onDone }: { onDone: () => void }) {
+function ScheduleForm({
+  onDone,
+  onStarted,
+}: {
+  onDone: () => void;
+  onStarted: (meeting: Meeting) => void;
+}) {
   const rooms = useMeetingRooms();
   const people = useInvitees();
   const me = useSessionStore((state) => state.user?.id);
@@ -56,19 +79,29 @@ function ScheduleForm({ onDone }: { onDone: () => void }) {
   const [problems, setProblems] = useState<Record<string, string>>({});
 
   const startsAt = new Date(`${date}T${time}`);
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
+  // "Meet now" skips the date and start: the meeting begins as soon as it is booked.
+  const book = (now: boolean) => {
     const found: Record<string, string> = {};
     if (!title.trim() || title.trim().length > 120) found.title = 'Use 1 to 120 characters.';
-    if (Number.isNaN(startsAt.getTime()) || startsAt.getTime() <= Date.now())
+    if (!now && (Number.isNaN(startsAt.getTime()) || startsAt.getTime() <= Date.now()))
       found.time = 'Pick a time in the future.';
     if (!roomId) found.room = 'Pick a room.';
     setProblems(found);
     if (Object.keys(found).length) return;
     schedule.mutate(
-      { roomId, title: title.trim(), startsAt: startsAt.toISOString(), minutes, invitees },
-      { onSuccess: onDone },
+      {
+        roomId,
+        title: title.trim(),
+        ...(now ? {} : { startsAt: startsAt.toISOString() }),
+        minutes,
+        invitees,
+      },
+      { onSuccess: (meeting) => (now ? onStarted(meeting) : onDone()) },
     );
+  };
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    book(false);
   };
 
   const places = [...new Set(rooms.data?.map((r) => r.place) ?? [])];
@@ -98,7 +131,7 @@ function ScheduleForm({ onDone }: { onDone: () => void }) {
             </p>
           )}
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1.3fr_1fr_1fr]">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1.25fr_1fr_1.15fr]">
           <div>
             <label className={label} htmlFor="meeting-date">
               Date
@@ -216,6 +249,14 @@ function ScheduleForm({ onDone }: { onDone: () => void }) {
           onClick={onDone}
         >
           Cancel
+        </button>
+        <button
+          type="button"
+          disabled={schedule.isPending}
+          onClick={() => book(true)}
+          className="h-11 cursor-pointer rounded-[10px] border border-accent bg-transparent px-[18px] font-semibold text-accent-text disabled:opacity-75"
+        >
+          Meet now
         </button>
         <button
           type="submit"

@@ -10,6 +10,7 @@ import {
   EARLY_MS,
   useCancelMeeting,
   useJoinMeeting,
+  useStartMeeting,
   useMyMeetings,
   type Join,
   type Meeting,
@@ -55,6 +56,7 @@ export function MeetingsPage() {
   const [params, setParams] = useSearchParams();
   const join = useJoinMeeting();
   const cancel = useCancelMeeting();
+  const start = useStartMeeting();
   const [inside, setInside] = useState<{ meeting: Meeting; ticket: Join } | null>(null);
 
   const open = (meeting: Meeting) =>
@@ -99,6 +101,9 @@ export function MeetingsPage() {
       {join.error && (
         <Alert tone="danger">{join.error.detail ?? 'We couldn’t join. Try again.'}</Alert>
       )}
+      {start.error && (
+        <Alert tone="danger">{start.error.detail ?? 'We couldn’t start it. Try again.'}</Alert>
+      )}
       {cancel.error && (
         <Alert tone="danger">{cancel.error.detail ?? 'We couldn’t cancel. Try again.'}</Alert>
       )}
@@ -135,7 +140,10 @@ export function MeetingsPage() {
                     {meeting.title}
                   </b>
                   <span className="text-sm text-muted">
-                    {meeting.roomName} · {meeting.place} · {meeting.attendees.length + 1} people
+                    {meeting.roomName} · {meeting.place} ·{' '}
+                    {meeting.attendees.length === 0
+                      ? '1 person'
+                      : `${meeting.attendees.length + 1} people`}
                   </span>
                 </div>
                 {meeting.status === 'LIVE' && (
@@ -164,6 +172,23 @@ export function MeetingsPage() {
                     Join {meeting.title}
                   </button>
                 )}
+                {meeting.organizerId === me &&
+                  meeting.status === 'SCHEDULED' &&
+                  !canJoin(meeting, now) &&
+                  Date.parse(meeting.endsAt) > now && (
+                    <button
+                      type="button"
+                      className={primary}
+                      disabled={start.isPending}
+                      aria-label={`Start ${meeting.title} now`}
+                      onClick={() => start.mutate(meeting.id, { onSuccess: (live) => open(live) })}
+                    >
+                      Start now
+                    </button>
+                  )}
+                {meeting.status === 'ENDED' && (
+                  <span className={`${chip} border border-line bg-field text-muted`}>Ended</span>
+                )}
                 {meeting.organizerId === me && meeting.status === 'SCHEDULED' && (
                   <button
                     type="button"
@@ -179,7 +204,11 @@ export function MeetingsPage() {
           })}
         </ul>
       )}
-      <ScheduleMeetingSheet open={scheduling} onClose={() => setScheduling(false)} />
+      <ScheduleMeetingSheet
+        open={scheduling}
+        onClose={() => setScheduling(false)}
+        onStarted={open}
+      />
     </div>
   );
 }
@@ -193,6 +222,7 @@ function MeetingStage({
   ticket: Join;
   onLeave: () => void;
 }) {
+  const myName = useSessionStore((state) => state.user?.displayName ?? '');
   const call = useLiveKitCall(ticket);
   const people = Object.keys(call.names);
   const leave = () => {
@@ -208,7 +238,8 @@ function MeetingStage({
           </h1>
           <p className="m-0 mt-1 text-muted">
             {meeting.roomName} · {timeFormat.format(Date.parse(meeting.startsAt))} –{' '}
-            {timeFormat.format(Date.parse(meeting.endsAt))} · {people.length + 1} people
+            {timeFormat.format(Date.parse(meeting.endsAt))} ·{' '}
+            {people.length ? `${people.length + 1} people` : 'Just you so far'}
           </p>
         </div>
       </div>
@@ -229,7 +260,7 @@ function MeetingStage({
             connected={call.states[id] === 'connected'}
           />
         ))}
-        <Tile name="You" stream={call.local} connected={false} me />
+        <Tile name={myName} stream={call.local} connected={false} me />
       </section>
       <div className="flex justify-center gap-2">
         <button
@@ -250,7 +281,7 @@ function MeetingStage({
         </button>
         <button
           type="button"
-          className={`${secondary} border-danger-ink bg-danger-ink text-surface`}
+          className="inline-flex h-9 cursor-pointer items-center rounded-[9px] border-0 bg-danger-ink px-3.5 text-sm font-semibold text-surface"
           onClick={leave}
         >
           Leave

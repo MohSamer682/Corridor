@@ -67,9 +67,11 @@ public class MeetingService {
             return context.tx()
                     .execute(status -> context.guard().once(organizer.userId(), key, MeetingView.class, () -> {
                         refuseClash(slot, null, rooms);
-                        var meeting = meetings.saveAndFlush(
-                                Meeting.schedule(organizer.organizationId(), organizer.userId(), slot));
-                        return view(meeting, rooms);
+                        var meeting = Meeting.schedule(organizer.organizationId(), organizer.userId(), slot);
+                        if (request.startsAt() == null) {
+                            meeting.moveTo(MeetingStatus.LIVE);
+                        }
+                        return view(meetings.saveAndFlush(meeting), rooms);
                     }));
         } catch (DataIntegrityViolationException race) {
             throw clashFor(slot, null, rooms, race);
@@ -89,6 +91,35 @@ public class MeetingService {
         } catch (DataIntegrityViolationException race) {
             throw clashFor(slot, meetingId, rooms, race);
         }
+    }
+
+    /** The organizer starts a scheduled meeting now, even before its time, if the room is free from now. */
+    public MeetingView startNow(CurrentUser organizer, UUID meetingId) {
+        var rooms = rooms(organizer);
+        var now = context.clock().instant().truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
+        try {
+            return context.tx().execute(status -> {
+                var meeting = organizedBy(organizer, meetingId);
+                var length = java.time.Duration.between(meeting.startsAt(), meeting.endsAt());
+                var early = new MeetingSlot(
+                        meeting.roomId(),
+                        meeting.title(),
+                        now.isBefore(meeting.startsAt()) ? now : meeting.startsAt(),
+                        now.isBefore(meeting.startsAt()) ? now.plus(length) : meeting.endsAt(),
+                        List.copyOf(meeting.attendees()));
+                refuseClash(early, meetingId, rooms);
+                meeting.startNow(now);
+                return view(meetings.saveAndFlush(meeting), rooms);
+            });
+        } catch (DataIntegrityViolationException race) {
+            throw new RoomAlreadyBookedException(
+                    rooms.get(meetingRoom(organizer, meetingId)).name(), "");
+        }
+    }
+
+    private UUID meetingRoom(CurrentUser organizer, UUID meetingId) {
+        return context.readOnly()
+                .execute(status -> organizedBy(organizer, meetingId).roomId());
     }
 
     public void cancel(CurrentUser organizer, UUID meetingId) {

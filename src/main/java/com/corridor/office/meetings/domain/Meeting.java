@@ -72,6 +72,18 @@ public class Meeting extends AuditedEntity {
         apply(slot);
     }
 
+    /** Starts a meeting now instead of later, keeping its length; it goes live straight away. */
+    public void startNow(java.time.Instant now) {
+        if (status != MeetingStatus.SCHEDULED) {
+            throw new ConflictException("meetings.closed");
+        }
+        if (now.isBefore(startsAt)) {
+            endsAt = now.plus(java.time.Duration.between(startsAt, endsAt));
+            startsAt = now;
+        }
+        status = MeetingStatus.LIVE;
+    }
+
     public void moveTo(MeetingStatus next) {
         if (!status.canMoveTo(next)) {
             throw new ConflictException("meetings.closed");

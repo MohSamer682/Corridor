@@ -147,6 +147,39 @@ class MeetingsIntegrationTest {
     }
 
     @Test
+    void shouldMeetNowWithoutAStartTime() {
+        var now = meetings.schedule(
+                nour, new ScheduleMeeting(NILE, "Quick sync", null, 30, List.of(omar.userId())), UUID.randomUUID());
+
+        assertThat(now.status()).isEqualTo(com.corridor.office.meetings.domain.MeetingStatus.LIVE);
+        assertThat(now.startsAt()).isBeforeOrEqualTo(Instant.now());
+        assertThat(now.endsAt()).isAfter(Instant.now().plus(29, ChronoUnit.MINUTES));
+    }
+
+    @Test
+    void shouldLetTheOrganizerStartEarlyWhenTheRoomIsFree() {
+        var later = book(nour, "Design review", ten, 45);
+
+        assertThatThrownBy(() -> meetings.startNow(omar, later.id())).isInstanceOf(ForbiddenException.class);
+        var started = meetings.startNow(nour, later.id());
+
+        assertThat(started.status()).isEqualTo(com.corridor.office.meetings.domain.MeetingStatus.LIVE);
+        assertThat(started.startsAt()).isBefore(ten);
+        assertThat(java.time.Duration.between(started.startsAt(), started.endsAt()))
+                .hasMinutes(45);
+    }
+
+    @Test
+    void shouldNotStartEarlyOverSomeoneElsesBooking() {
+        // The next quarter hour is taken; my meeting is later, so starting it now would run into that one.
+        var nextQuarter = Instant.ofEpochSecond((Instant.now().getEpochSecond() / 900 + 1) * 900);
+        book(omar, "Already here", nextQuarter, 15);
+        var mine = book(nour, "Mine later", nextQuarter.plus(1, ChronoUnit.HOURS), 30);
+
+        assertThatThrownBy(() -> meetings.startNow(nour, mine.id())).isInstanceOf(RoomAlreadyBookedException.class);
+    }
+
+    @Test
     void shouldBookOnceForTheSameKey() {
         var key = UUID.randomUUID();
         var request = new ScheduleMeeting(NILE, "Double click", ten, 30, List.of());

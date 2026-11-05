@@ -108,6 +108,15 @@ class MeetingController {
         return meetings.reschedule(CurrentUser.from(jwt), meetingId, request);
     }
 
+    @PostMapping("/api/v1/meetings/{meetingId}/start")
+    @Operation(summary = "Start your meeting now, even before its time, if the room is free (organizer only)")
+    @ApiResponse(responseCode = "200", description = "The meeting, live from now")
+    @ApiResponse(responseCode = "403", description = "Not the organizer")
+    @ApiResponse(responseCode = "409", description = "The room is booked before the meeting's time, or it is over")
+    MeetingView start(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID meetingId) {
+        return meetings.startNow(CurrentUser.from(jwt), meetingId);
+    }
+
     @PostMapping("/api/v1/meetings/{meetingId}/cancellation")
     @Operation(summary = "Cancel a meeting and free its room (organizer only)")
     @ApiResponse(responseCode = "200", description = "Cancelled")
