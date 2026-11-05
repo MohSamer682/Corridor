@@ -2,6 +2,7 @@ package com.corridor.office.presence.application;
 
 import com.corridor.office.common.domain.NotFoundException;
 import com.corridor.office.common.security.CurrentUser;
+import com.corridor.office.presence.OnlinePeople;
 import com.corridor.office.presence.domain.AvatarState;
 import com.corridor.office.presence.domain.FloorSession;
 import com.corridor.office.presence.domain.Frame;
@@ -12,6 +13,7 @@ import com.corridor.office.presence.domain.MovementIntent.Move;
 import com.corridor.office.presence.events.FloorTicked;
 import com.corridor.office.presence.events.FloorTicked.Standing;
 import com.corridor.office.spaces.SpaceCatalog;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -28,7 +30,7 @@ import org.springframework.stereotype.Service;
  * scheduler's single thread ticks every floor and sends one frame per floor that changed.
  */
 @Service
-public class PresenceService {
+public class PresenceService implements OnlinePeople {
 
     private static final class LiveFloor {
         final UUID organizationId;
@@ -123,6 +125,17 @@ public class PresenceService {
                 .filter(entry -> !entry.getValue().snapshot.isEmpty())
                 .collect(Collectors.toMap(
                         Map.Entry::getKey, entry -> entry.getValue().snapshot.size()));
+    }
+
+    @Override
+    public Map<UUID, UUID> floorsOf(UUID organizationId) {
+        var where = new HashMap<UUID, UUID>();
+        floors.forEach((floorId, floor) -> {
+            if (floor.organizationId.equals(organizationId)) {
+                floor.snapshot.forEach(avatar -> where.put(avatar.userId(), floorId));
+            }
+        });
+        return where;
     }
 
     /** Whether the viewer may follow a floor: it exists and belongs to their company. */
