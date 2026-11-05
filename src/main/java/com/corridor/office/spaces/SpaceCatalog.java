@@ -19,6 +19,12 @@ public interface SpaceCatalog {
     /** The rooms of a floor that shut out sound: offices and meeting rooms. Empty for a floor of another company. */
     List<PrivateRoom> privateRooms(UUID organizationId, UUID floorId);
 
+    /** The company's town hall room and the point in its middle, if it has one. */
+    Optional<Place> townHall(UUID organizationId);
+
+    /** A point on a floor, in tiles. */
+    record Place(UUID floorId, double x, double y, String name) {}
+
     /** Meeting and conference rooms of a company, by building, floor and name. */
     List<BookableRoom> bookableRooms(UUID organizationId);
 
