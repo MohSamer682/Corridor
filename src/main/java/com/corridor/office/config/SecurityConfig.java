@@ -23,6 +23,15 @@ import org.springframework.web.servlet.HandlerExceptionResolver;
 @EnableConfigurationProperties(CorsProperties.class)
 public class SecurityConfig {
 
+    private static final String[] PUBLIC_POSTS = {
+        "/api/v1/auth/login",
+        "/api/v1/auth/refresh",
+        "/api/v1/auth/logout",
+        "/api/v1/auth/registrations",
+        // Jira can't sign in; the body's HMAC signature is checked instead.
+        "/api/v1/integrations/jira/webhook/*"
+    };
+
     @Bean
     SecurityFilterChain securityFilterChain(
             HttpSecurity http,
@@ -32,12 +41,7 @@ public class SecurityConfig {
         return http.csrf(AbstractHttpConfigurer::disable)
                 .cors(configurer -> configurer.configurationSource(corsSource(cors)))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(requests -> requests.requestMatchers(
-                                HttpMethod.POST,
-                                "/api/v1/auth/login",
-                                "/api/v1/auth/refresh",
-                                "/api/v1/auth/logout",
-                                "/api/v1/auth/registrations")
+                .authorizeHttpRequests(requests -> requests.requestMatchers(HttpMethod.POST, PUBLIC_POSTS)
                         .permitAll()
                         .requestMatchers(
                                 HttpMethod.GET,
