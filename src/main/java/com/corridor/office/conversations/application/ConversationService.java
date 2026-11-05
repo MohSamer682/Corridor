@@ -1,6 +1,7 @@
 package com.corridor.office.conversations.application;
 
 import com.corridor.office.common.security.CurrentUser;
+import com.corridor.office.conversations.FocusStatus;
 import com.corridor.office.conversations.domain.ConversationGroups;
 import com.corridor.office.conversations.domain.Group;
 import com.corridor.office.conversations.domain.MediaRoute;
@@ -26,7 +27,7 @@ import org.springframework.stereotype.Service;
  * thread after positions move, and right away when someone turns focus on or off.
  */
 @Service
-public class ConversationService {
+public class ConversationService implements FocusStatus {
 
     /**
      * Sent to a person whenever their group changes; {@code groupId} is null when they are in none. {@code route}
@@ -119,6 +120,7 @@ public class ConversationService {
         }
     }
 
+    @Override
     public boolean inFocus(UUID userId) {
         return focused.contains(userId);
     }
