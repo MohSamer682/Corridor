@@ -14,3 +14,5 @@ app.media.turn-urls: turn:127.0.0.1:3478
 app.media.turn-secret: local-turn-secret
 app.livekit.api-key: corridor
 app.livekit.api-secret: local-livekit-secret-0123456789abcdef
+# 32 random bytes, base64; encrypts the Jira API token at rest.
+app.jira.key: q4lcBcFZIPWIRozyD2Geq5t9ip/etwUSeP3VtLQVVW8=

@@ -2,3 +2,5 @@ spring:
   docker.compose.enabled: false
   messages.basename: messages,i18n/test-messages
 app.security.refresh-cookie.secure: false
+# 32 random bytes, base64; encrypts the Jira API token at rest.
+app.jira.key: DWgUv1LyGXJ3IAf2wXkqGKnZuHlGjxm4WyR0EcOljLQ=
