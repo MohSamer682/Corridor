@@ -1,4 +1,7 @@
+import { useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router';
+import { AnnouncementBanner } from '../features/announcements/AnnouncementBanner';
+import { BroadcastSheet } from '../features/announcements/BroadcastSheet';
 import { PunchClock } from '../features/attendance/PunchClock';
 import { initials } from '../features/auth/initials';
 import { useSessionStore } from '../features/auth/sessionStore';
@@ -12,6 +15,8 @@ const adminLinks = [
 
 export function AppShell() {
   const user = useSessionStore((state) => state.user);
+  const [broadcasting, setBroadcasting] = useState(false);
+  const canBroadcast = user?.role === 'MANAGER' || user?.role === 'HR' || user?.role === 'ADMIN';
   return (
     <div className="flex min-h-screen flex-col">
       <a
@@ -54,6 +59,15 @@ export function AppShell() {
         )}
         {user && (
           <div className="flex items-center gap-3">
+            {canBroadcast && (
+              <button
+                type="button"
+                onClick={() => setBroadcasting(true)}
+                className="hidden h-10 cursor-pointer items-center rounded-[10px] border border-line bg-transparent px-3.5 text-sm font-semibold text-ink hover:bg-field sm:inline-flex"
+              >
+                Broadcast
+              </button>
+            )}
             <PunchClock />
             <span
               title={user.displayName}
@@ -64,6 +78,10 @@ export function AppShell() {
           </div>
         )}
       </header>
+      {user && <AnnouncementBanner />}
+      {canBroadcast && (
+        <BroadcastSheet open={broadcasting} onClose={() => setBroadcasting(false)} />
+      )}
       <main id="main" className="flex flex-1 flex-col">
         <Outlet />
       </main>

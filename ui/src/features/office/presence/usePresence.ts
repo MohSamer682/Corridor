@@ -92,6 +92,13 @@ function subscribe(stomp: Client, floorId: string): StompSubscription[] {
       useConversationStore.getState().addMessage(json<ChatMessage>(message.body)),
     ),
     stomp.subscribe('/user/queue/signals', (message) => emitSignal(json<Signal>(message.body))),
+    // Announcements and town halls refetch through their own queries; a nudge makes that instant.
+    stomp.subscribe('/user/queue/announcements', () =>
+      window.dispatchEvent(new Event('corridor:announcement')),
+    ),
+    stomp.subscribe('/user/queue/town-hall', () =>
+      window.dispatchEvent(new Event('corridor:announcement')),
+    ),
     stomp.subscribe('/user/queue/position', (message) => {
       const back = json<{ x: number; y: number }>(message.body);
       usePresenceStore.getState().correct(back.x, back.y);

@@ -75,6 +75,25 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/town-hall': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** The live town hall, if there is one */
+    get: operations['current'];
+    put?: never;
+    /** Call a town hall; everyone is invited to walk to the hall */
+    post: operations['start'];
+    /** End the town hall */
+    delete: operations['end'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/teams': {
     parameters: {
       query?: never;
@@ -122,6 +141,23 @@ export interface paths {
     put?: never;
     /** A LiveKit token to join a meeting: invitees only, from 10 minutes before it starts */
     post: operations['join'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/meetings/{meetingId}/start': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Start your meeting now, even before its time, if the room is free (organizer only) */
+    post: operations['start_1'];
     delete?: never;
     options?: never;
     head?: never;
@@ -241,6 +277,40 @@ export interface paths {
     put?: never;
     /** Sign in with email and password */
     post: operations['login'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/announcements': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Broadcast to everyone, or to one team (managers, HR and admins) */
+    post: operations['publish'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/announcements/{id}/read': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Dismiss an announcement */
+    post: operations['read'];
     delete?: never;
     options?: never;
     head?: never;
@@ -658,6 +728,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/announcements/unread': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Announcements for you that you haven't dismissed, from the last 7 days */
+    get: operations['unread'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -703,6 +790,23 @@ export interface components {
       role: 'ADMIN' | 'HR' | 'MANAGER' | 'EMPLOYEE';
       /** Format: uuid */
       teamId?: string;
+    };
+    CallTownHall: {
+      title?: string;
+    };
+    TownHall: {
+      title?: string;
+      /** Format: uuid */
+      floorId?: string;
+      /** Format: double */
+      x?: number;
+      /** Format: double */
+      y?: number;
+      roomName?: string;
+      /** Format: uuid */
+      calledBy?: string;
+      /** Format: date-time */
+      startedAt?: string;
     };
     TeamRequest: {
       name: string;
@@ -777,6 +881,19 @@ export interface components {
       /** Format: email */
       email: string;
       password: string;
+    };
+    Broadcast: {
+      /** Format: uuid */
+      teamId?: string;
+      body?: string;
+    };
+    Sent: {
+      /** Format: uuid */
+      id?: string;
+      /** Format: int32 */
+      audience?: number;
+      /** Format: int32 */
+      online?: number;
     };
     UpdateUserRequest: {
       displayName: string;
@@ -1054,6 +1171,18 @@ export interface components {
       teamName?: string;
       day?: components['schemas']['WorkDay'];
     };
+    AnnouncementView: {
+      /** Format: uuid */
+      id?: string;
+      kind?: string;
+      body?: string;
+      teamName?: string;
+      /** Format: uuid */
+      authorId?: string;
+      authorName?: string;
+      /** Format: date-time */
+      createdAt?: string;
+    };
   };
   responses: never;
   parameters: never;
@@ -1320,6 +1449,88 @@ export interface operations {
       };
     };
   };
+  current: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The town hall */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['TownHall'];
+        };
+      };
+      /** @description None is live */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['TownHall'];
+        };
+      };
+    };
+  };
+  start: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CallTownHall'];
+      };
+    };
+    responses: {
+      /** @description Live */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['TownHall'];
+        };
+      };
+      /** @description One is already live */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['TownHall'];
+        };
+      };
+    };
+  };
+  end: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Ended */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['ApiResult'];
+        };
+      };
+    };
+  };
   list_1: {
     parameters: {
       query: {
@@ -1487,6 +1698,46 @@ export interface operations {
         };
         content: {
           '*/*': components['schemas']['Join'];
+        };
+      };
+    };
+  };
+  start_1: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        meetingId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The meeting, live from now */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['MeetingView'];
+        };
+      };
+      /** @description Not the organizer */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['MeetingView'];
+        };
+      };
+      /** @description The room is booked before the meeting's time, or it is over */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['MeetingView'];
         };
       };
     };
@@ -1753,6 +2004,70 @@ export interface operations {
         };
         content: {
           '*/*': components['schemas']['TokenResponse'];
+        };
+      };
+    };
+  };
+  publish: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['Broadcast'];
+      };
+    };
+    responses: {
+      /** @description Sent; how many it is for and how many were online */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['Sent'];
+        };
+      };
+      /** @description Employees can't broadcast */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['Sent'];
+        };
+      };
+      /** @description Write between 1 and 1,000 characters */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['Sent'];
+        };
+      };
+    };
+  };
+  read: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Dismissed */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['ApiResult'];
         };
       };
     };
@@ -2547,6 +2862,26 @@ export interface operations {
         };
         content: {
           '*/*': components['schemas']['WorkDay'][];
+        };
+      };
+    };
+  };
+  unread: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Newest first */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['AnnouncementView'][];
         };
       };
     };

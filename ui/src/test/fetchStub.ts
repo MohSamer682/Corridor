@@ -9,6 +9,13 @@ let calls: Call[] = [];
 const PUNCH = { punchedIn: false, since: null, lastOut: null, workedTodayMinutes: 0 };
 const isPunchClock = (url: string, init: RequestInit) =>
   url === '/api/v1/me/punch' && (init.method ?? 'GET') === 'GET';
+// The shell also asks for unread announcements and a live town hall on every page: none of either.
+const shellResponse = (url: string, init: RequestInit) => {
+  if ((init.method ?? 'GET') !== 'GET') return null;
+  if (url === '/api/v1/announcements/unread') return json(200, []);
+  if (url === '/api/v1/town-hall') return new Response(null, { status: 204 });
+  return null;
+};
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), {
     status,
@@ -22,6 +29,8 @@ export function stubFetch(responses: StubbedResponse[], options: { delayMs?: num
     'fetch',
     vi.fn(async (url: string, init: RequestInit = {}) => {
       if (isPunchClock(url, init)) return json(200, PUNCH);
+      const shell = shellResponse(url, init);
+      if (shell) return shell;
       calls.push({ url, init });
       const next = queue.shift();
       if (!next) throw new Error(`Unexpected request to ${url}`);
@@ -39,12 +48,17 @@ export function stubFetch(responses: StubbedResponse[], options: { delayMs?: num
 
 type Handler = (method: string, url: string, body: unknown) => StubbedResponse;
 
-export function stubApi(handler: Handler, handlesPunch = false) {
+export function stubApi(handler: Handler, handlesShell = false) {
   calls = [];
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string, init: RequestInit = {}) => {
-      if (isPunchClock(url, init) && !handlesPunch) return json(200, PUNCH);
+      // handlesShell: the test answers the punch clock, announcements and town hall itself.
+      if (!handlesShell) {
+        if (isPunchClock(url, init)) return json(200, PUNCH);
+        const shell = shellResponse(url, init);
+        if (shell) return shell;
+      }
       calls.push({ url, init });
       const body = typeof init.body === 'string' ? JSON.parse(init.body) : undefined;
       const [status, payload] = handler(init.method ?? 'GET', url, body);

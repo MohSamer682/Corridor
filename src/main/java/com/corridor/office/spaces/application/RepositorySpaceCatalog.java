@@ -87,6 +87,18 @@ class RepositorySpaceCatalog implements SpaceCatalog {
                 .toList();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<Place> townHall(UUID organizationId) {
+        return rooms.findHalls(organizationId).stream()
+                .findFirst()
+                .map(room -> new Place(
+                        room.floorId(),
+                        (room.minX() + room.maxX() + 1) / 2.0,
+                        (room.minY() + room.maxY() + 1) / 2.0,
+                        room.name()));
+    }
+
     // Office desks belong to whoever HR gave the office to, so sitting there claims nothing.
     private boolean inPrivateOffice(Seat seat) {
         return seat.roomId() != null
