@@ -10,6 +10,7 @@ import { ProfilePage } from '../features/auth/ProfilePage';
 import { RequireAuth } from '../features/auth/RequireAuth';
 import { SignUpPage } from '../features/auth/SignUpPage';
 import { JiraConnectionPage } from '../features/workboard/JiraConnectionPage';
+import { CommandCenterPage } from '../features/insights/CommandCenterPage';
 import { AppShell } from './AppShell';
 import { NotFoundPage } from './NotFoundPage';
 import { RequireRole } from './RequireRole';
@@ -37,6 +38,10 @@ export const routes: RouteObject[] = [
               { path: 'admin/teams', element: <TeamsPage /> },
               { path: 'admin/audit', element: <AuditLogPage /> },
             ],
+          },
+          {
+            element: <RequireRole roles={['MANAGER', 'HR', 'ADMIN']} redirectTo="/office" />,
+            children: [{ path: 'command-center', element: <CommandCenterPage /> }],
           },
           {
             element: <RequireRole roles={['ADMIN']} />,

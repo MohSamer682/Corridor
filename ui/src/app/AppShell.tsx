@@ -17,6 +17,17 @@ export function AppShell() {
   const user = useSessionStore((state) => state.user);
   const [broadcasting, setBroadcasting] = useState(false);
   const canBroadcast = user?.role === 'MANAGER' || user?.role === 'HR' || user?.role === 'ADMIN';
+  const links = user
+    ? ([
+        ['/office', 'Office'],
+        ...(canBroadcast ? ([['/command-center', 'Command Center']] as const) : []),
+        ['/meetings', 'Meetings'],
+        ['/attendance', 'Attendance'],
+        ['/me', 'Profile'],
+        ...(user.role === 'ADMIN' || user.role === 'HR' ? adminLinks : []),
+        ...(user.role === 'ADMIN' ? ([['/admin/jira', 'Jira']] as const) : []),
+      ] as const)
+    : [];
   return (
     <div className="flex min-h-screen flex-col">
       <a
@@ -32,23 +43,17 @@ export function AppShell() {
         {user && (
           <nav
             aria-label="Main"
-            className="order-3 flex w-full gap-1 overflow-x-auto sm:order-none sm:w-auto"
+            className={`order-3 flex w-full gap-1 overflow-x-auto ${
+              // Admins have nine links; below 1536px they get their own row instead of squeezing the top bar.
+              links.length > 6 ? '2xl:order-none 2xl:w-auto' : 'sm:order-none sm:w-auto'
+            }`}
           >
-            {(
-              [
-                ['/office', 'Office'],
-                ['/meetings', 'Meetings'],
-                ['/attendance', 'Attendance'],
-                ['/me', 'Profile'],
-                ...(user.role === 'ADMIN' || user.role === 'HR' ? adminLinks : []),
-                ...(user.role === 'ADMIN' ? ([['/admin/jira', 'Jira']] as const) : []),
-              ] as const
-            ).map(([to, text]) => (
+            {links.map(([to, text]) => (
               <NavLink
                 key={to}
                 to={to}
                 className={({ isActive }) =>
-                  `flex min-h-11 items-center border-b-2 px-3 font-medium no-underline ${
+                  `flex min-h-11 items-center border-b-2 px-3 font-medium whitespace-nowrap no-underline ${
                     isActive ? 'border-accent text-ink' : 'border-transparent text-muted'
                   }`
                 }
