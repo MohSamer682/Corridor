@@ -115,3 +115,50 @@ it('checks the form, then shows a clash next to the room', async () => {
   });
   expect(new Headers(post?.init.headers).get('Idempotency-Key')).toBeTruthy();
 });
+
+it('lets the organizer start early and meet now', async () => {
+  const me = signIn();
+  stubApi((method, url) => {
+    if (url.startsWith('/api/v1/meetings?'))
+      return [
+        200,
+        [
+          meeting('m5', 'Design review', 90, { organizerId: me }),
+          meeting('m6', 'Old one', -60, { status: 'ENDED' }),
+        ],
+      ];
+    if (url === '/api/v1/meetings/m5/start')
+      return [200, meeting('m5', 'Design review', 0, { organizerId: me, status: 'LIVE' })];
+    if (url === '/api/v1/meeting-rooms')
+      return [200, [{ id: 'nile', name: 'Nile Room', floorId: 'l1', place: 'Corridor HQ · L1' }]];
+    if (method === 'POST' && url === '/api/v1/meetings')
+      return [201, meeting('m7', 'Quick sync', 0, { organizerId: me, status: 'LIVE' })];
+    if (url.endsWith('/token'))
+      return [409, { status: 409, detail: 'LiveKit is not running in tests.' }];
+    return [200, []];
+  });
+  renderApp('/meetings');
+
+  expect(await screen.findByText('Ended')).toBeInTheDocument();
+  await user.click(await screen.findByRole('button', { name: 'Start Design review now' }));
+  await vi.waitFor(() =>
+    expect(fetchCalls().some((c) => c.url === '/api/v1/meetings/m5/start')).toBe(true),
+  );
+  await vi.waitFor(() =>
+    expect(fetchCalls().some((c) => c.url === '/api/v1/meetings/m5/token')).toBe(true),
+  );
+
+  await user.click(screen.getByRole('button', { name: 'Schedule a meeting' }));
+  const sheet = await screen.findByRole('dialog', { name: 'Schedule a meeting' });
+  await user.type(within(sheet).getByLabelText('Title'), 'Quick sync');
+  await user.selectOptions(await within(sheet).findByLabelText('Room'), 'nile');
+  await user.click(within(sheet).getByRole('button', { name: 'Meet now' }));
+
+  await vi.waitFor(() => {
+    const post = fetchCalls().find((c) => c.init.method === 'POST' && c.url === '/api/v1/meetings');
+    expect(JSON.parse(String(post?.init.body))).not.toHaveProperty('startsAt');
+  });
+  await vi.waitFor(() =>
+    expect(fetchCalls().some((c) => c.url === '/api/v1/meetings/m7/token')).toBe(true),
+  );
+});

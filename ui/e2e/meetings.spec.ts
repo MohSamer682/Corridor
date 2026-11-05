@@ -23,11 +23,15 @@ async function book(page: Page, title: string, start: Date) {
   await sheet.getByLabel('Start').fill(`${pad(start.getHours())}:${pad(start.getMinutes())}`);
   await sheet.getByLabel('Room').selectOption({ label: 'Luxor Room' });
   await sheet.getByRole('checkbox', { name: /Omar Adel/ }).check();
+  const answered = page.waitForResponse(
+    (r) => r.url().endsWith('/api/v1/meetings') && r.request().method() === 'POST',
+  );
   await sheet.getByRole('button', { name: 'Schedule' }).click();
+  await answered;
   return sheet;
 }
 
-test('books a room, refuses the same slot, and joins over LiveKit', async ({ page, browser }) => {
+test('books a room, refuses the same slot, meets now and joins over LiveKit', async ({ page, browser }) => {
   // A fresh quarter hour soon enough that Join is open, unique per run in minutes since the epoch.
   const start = new Date(Date.now() + 5 * 60_000);
   start.setMinutes(Math.ceil(start.getMinutes() / 15) * 15, 0, 0);
@@ -53,17 +57,20 @@ test('books a room, refuses the same slot, and joins over LiveKit', async ({ pag
   ).toBeVisible();
   await sheet.getByRole('button', { name: 'Cancel' }).click();
 
+  // Meet now: a room booked from this moment, live straight away, and the organizer is in.
+  const now = `Quick sync ${Date.now() % 100_000}`;
+  await page.getByRole('button', { name: 'Schedule a meeting' }).click();
+  const quick = page.getByRole('dialog', { name: 'Schedule a meeting' });
+  await quick.getByLabel('Title').fill(now);
+  await quick.getByLabel('Room').selectOption({ label: 'Siwa Room' });
+  await quick.getByRole('checkbox', { name: /Omar Adel/ }).check();
+  await quick.getByRole('button', { name: 'Meet now' }).click();
+  await expect(page.getByRole('region', { name: 'Meeting' })).toBeVisible();
+
   const omar = await (await browser.newContext()).newPage();
   await signIn(omar, 'omar@corridor.local');
-  await omar
-    .getByRole('button', { name: /^Join / })
-    .first()
-    .click();
+  await omar.getByRole('button', { name: `Join ${now}` }).click();
   await expect(omar.getByRole('region', { name: 'Meeting' })).toBeVisible();
-  await page
-    .getByRole('button', { name: /^Join / })
-    .first()
-    .click();
   await expect(page.getByRole('group', { name: /^Omar.*, connected$/ })).toBeVisible({
     timeout: 60_000,
   });

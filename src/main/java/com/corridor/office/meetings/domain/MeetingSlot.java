@@ -18,30 +18,32 @@ public record MeetingSlot(UUID roomId, String title, Instant startsAt, Instant e
     public record Draft(UUID roomId, String title, Instant startsAt, int minutes, List<UUID> invitees) {}
 
     public static MeetingSlot of(Draft draft, Instant now) {
-        var roomId = draft.roomId();
         var title = draft.title();
         var startsAt = draft.startsAt();
         var minutes = draft.minutes();
-        var invitees = draft.invitees();
         var name = title == null ? "" : title.strip();
         if (name.isEmpty() || name.length() > MAX_TITLE) {
             throw new InvalidInputException("meetings.title");
         }
-        if (startsAt == null || !startsAt.isAfter(now)) {
+        // No start time means "now": a meeting that begins straight away, off the quarter-hour grid.
+        var startsNow = startsAt == null;
+        if (startsNow) {
+            startsAt = now.truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
+        } else if (!startsAt.isAfter(now)) {
             throw new InvalidInputException("meetings.past");
         }
         if (minutes < MIN_MINUTES || minutes > MAX_MINUTES || minutes % MIN_MINUTES != 0) {
             throw new InvalidInputException("meetings.length");
         }
-        if (startsAt.getEpochSecond() % (MIN_MINUTES * 60) != 0) {
+        if (!startsNow && startsAt.getEpochSecond() % (MIN_MINUTES * 60) != 0) {
             throw new InvalidInputException("meetings.step");
         }
-        var people = invitees == null
+        var people = draft.invitees() == null
                 ? List.<UUID>of()
-                : invitees.stream().distinct().toList();
+                : draft.invitees().stream().distinct().toList();
         if (people.size() > MAX_INVITEES) {
             throw new InvalidInputException("meetings.invitees");
         }
-        return new MeetingSlot(roomId, name, startsAt, startsAt.plus(Duration.ofMinutes(minutes)), people);
+        return new MeetingSlot(draft.roomId(), name, startsAt, startsAt.plus(Duration.ofMinutes(minutes)), people);
     }
 }

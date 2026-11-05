@@ -39,3 +39,36 @@ body {
   font-size: 15px;
   line-height: 1.5;
 }
+
+/* Punch clock: the note under the clock settles into place; an open punch's stretch breathes at its live end. */
+@keyframes note-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+    filter: blur(2px);
+  }
+}
+
+@keyframes punch-live {
+  50% {
+    opacity: 0.72;
+  }
+}
+
+.punch-open {
+  background-image: linear-gradient(
+    90deg,
+    transparent 70%,
+    color-mix(in srgb, var(--signal) 60%, transparent)
+  );
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .punch-open {
+    animation: punch-live 2.4s ease-in-out infinite;
+  }
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+}

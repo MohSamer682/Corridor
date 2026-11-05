@@ -26,7 +26,8 @@ export type Invitee = {
 export type ScheduleRequest = {
   roomId: string;
   title: string;
-  startsAt: string;
+  /** Left out to meet now: the meeting starts straight away and is live. */
+  startsAt?: string;
   minutes: number;
   invitees: string[];
 };
@@ -85,6 +86,15 @@ export function useCancelMeeting() {
   const queryClient = useQueryClient();
   return useMutation<unknown, ProblemError, string>({
     mutationFn: (id) => apiClient(`/api/v1/meetings/${id}/cancellation`, { method: 'POST' }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['meetings'] }),
+  });
+}
+
+/** The organizer starts a scheduled meeting now, even before its time. */
+export function useStartMeeting() {
+  const queryClient = useQueryClient();
+  return useMutation<Meeting, ProblemError, string>({
+    mutationFn: (id) => apiClient<Meeting>(`/api/v1/meetings/${id}/start`, { method: 'POST' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['meetings'] }),
   });
 }
