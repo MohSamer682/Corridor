@@ -41,6 +41,7 @@ export function AppShell() {
                 ['/attendance', 'Attendance'],
                 ['/me', 'Profile'],
                 ...(user.role === 'ADMIN' || user.role === 'HR' ? adminLinks : []),
+                ...(user.role === 'ADMIN' ? ([['/admin/jira', 'Jira']] as const) : []),
               ] as const
             ).map(([to, text]) => (
               <NavLink

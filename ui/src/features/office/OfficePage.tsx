@@ -17,6 +17,7 @@ import { useConversationStore } from '../talk/conversationStore';
 import { CallPanel, ChatPanel } from '../talk/TalkPanels';
 import { useTalkHint } from '../talk/useTalk';
 import { MeetingPrompt } from '../meetings/MeetingPrompt';
+import { BoardDialog } from '../workboard/BoardDialog';
 import { usePeerConnections } from '../talk/usePeerConnections';
 import { useLiveKitCall, type LiveKitJoin } from '../talk/useLiveKitCall';
 import { useQuery } from '@tanstack/react-query';
@@ -67,6 +68,7 @@ export function OfficePage() {
   const [tools, setTools] = useState<Tools>({ cutaway: false, overview: false, studio: true });
   const [studioAvailable, setStudioAvailable] = useState(true);
   const [controls, setControls] = useState<OfficeControls | null>(null);
+  const [boardOpen, setBoardOpen] = useState(false);
   const target = campus.data ? locate(campus.data, buildingId, floorId) : null;
   const layouts = useFloorLayouts(floorIdsFor(campus.data, target));
   const meId = useSessionStore((state) => state.user?.id ?? null);
@@ -160,6 +162,7 @@ export function OfficePage() {
             onReady={setControls}
             onOpenBuilding={openBuilding}
             onOpenFloor={openFloor}
+            onOpenBoard={() => setBoardOpen(true)}
             onMove={presence.move}
             meId={meId}
             onStudioUnavailable={() => {
@@ -180,6 +183,7 @@ export function OfficePage() {
           studioAvailable={studioAvailable}
           controls={controls}
           onChange={setTools}
+          onBoard={() => setBoardOpen(true)}
           focus={{
             on: inFocus,
             toggle: () => presence.send('/app/conversations/focus', { on: !inFocus }),
@@ -212,6 +216,9 @@ export function OfficePage() {
           </>
         )}
         {view.mode === 'floor' && meId && <MeetingPrompt me={meId} rooms={view.layout.rooms} />}
+        {view.mode === 'floor' && (
+          <BoardDialog open={boardOpen} onClose={() => setBoardOpen(false)} />
+        )}
         {view.mode === 'floor' && !group && (
           <Minimap layout={view.layout} level={view.floor.level} controls={controls} />
         )}
